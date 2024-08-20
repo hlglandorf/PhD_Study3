@@ -1,0 +1,1888 @@
+---
+title: "Study 3 Chronic Biomarkers: Analysis"
+author: "H.L. Glandorf"
+date: "2023-03-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Analysis on burnout and chronic biomarkers in athletes (Part B of Study 3)
+This code file analyses the data from chronic biomarkers through visual analyses. 
+
+The analysis is separated into: 
+- Cleaning the data
+- Descriptive statistics
+- Plotting by biomarker
+
+# Load relevant libraries
+```{r libraries}
+library(tidyverse)
+library(ggplot2)
+library(psych)
+library(readxl)
+```
+
+# Import data
+The data files are separated into data with the questionnaire data (demographics, stress, burnout) and two files for biomarker data (first one holds HbA1c and blood pressure data in addition to the date, second one holds remaining biomarkers). They are imported from two files and will be joined in a later code chunk.
+```{r data import, warning=FALSE}
+q_dat <- read_excel("Biomed_QuestionnaireData1.xlsx")
+b_data <- read_excel("study 2B_samples.xlsx", col_types = c("text", "text", "date", 
+        "numeric", "text", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric"))
+bfull_data <- read_excel("S2B_biomarkers.xlsx", col_types = c("text", "numeric", "skip", "numeric", "numeric", "numeric", 
+                                                              "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
+                                                              "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"))
+# there will be warnings about NAs in the data, which is expected since there are missing values
+```
+
+# Cleaning data
+The HbA1c data holds some testing rows that need to be removed. The questionnaire data needs to be filtered for the two participants who were assessed for chronic biomarkers and recoded so the coding matches with previous research. Then the questionnaire data and first biomarker file need to be joined.
+```{r cleaning data}
+##Hba1c data
+b_data <- b_data %>% filter(!is.na(`HbA1c %`)) %>% filter(id != 'test_OK') %>%
+  select(id, timepoint, date, `HbA1c %`, `eAg (mmol/L)`, S_BP_1, S_BP_2, D_BP_1, D_BP_2)
+q_dat2 <- q_dat %>% filter(id != 'SA_P1', id != 'SA_P4') %>% filter(!is.na(PSS_1))
+q_dat2 <- q_dat2 %>% mutate(ABQ1r = recode(ABQ_1_rev,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ2r = recode(ABQ_2,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ3r = recode(ABQ_3,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ4r = recode(ABQ_4,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ5r = recode(ABQ_5,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ6r = recode(ABQ_6,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ7r = recode(ABQ_7,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ8r = recode(ABQ_8,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ9r = recode(ABQ_9,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ10r = recode(ABQ_10,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ11r = recode(ABQ_11,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ12r = recode(ABQ_12,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ13r = recode(ABQ_13,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                        ABQ14r = recode(ABQ_14_rev,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                        ABQ15r = recode(ABQ_15,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                        DEVr = (ABQ3r+ABQ5r+ABQ9r+ABQ11r+ABQ15r)/5,
+                        EXHr = (ABQ2r+ABQ4r+ABQ8r+ABQ10r+ABQ12r)/5,
+                        RSAr = (ABQ1r+ABQ5r+ABQ7r+ABQ13r+ABQ14r)/5, 
+                        BURNr = (DEVr + EXHr + RSAr)/3)
+dat1 <- inner_join(q_dat2, b_data, by = c("id", "timepoint"))
+```
+
+Following the first data join, the other biomarkers need to be joined with the questionnaire data. Before this can happen, additional timepoints need to be created for the hair cortisol data for it to align with what the hair cortisol reflects time-wise. The first segment shows the hair cortisol over the previous month, the second segment shows the hair cortisol over the month prior to that. To make later plotting easier, separate data files are created for each biomarker or biomarker group.  
+```{r biomarker frames}
+##hair cortisol
+hairc <- bfull_data %>% 
+  select(id, timepoint, s1_hairocortisol, s2_hcortisol, hair_cortisol) %>%
+  filter(!is.na(hair_cortisol))
+q_new <- q_dat2 %>% select(id, timepoint, EXH, DEV, RSA, TOTAL, STRESS, EXHr, DEVr, RSAr, BURNr)
+add_row <- data.frame(id = c("SB_P2", "SB_P2", "SB_P2", "SB_P3", "SB_P3", "SB_P3"), 
+           timepoint= c(0.5,1.5,2.5,0.5,1.5,2.5),  # adds .5 timepoints
+           EXH=c(1.1, 0.9, 0.7, 1.9, 2.0, 2.2),  # adds levels of burnout and stress for each .5 timepoint, which represent average of pre/post timepoint
+           DEV=c(1.7, 1.5, 1.5, 1.7, 2.0, 2.0), 
+           RSA=c(2.6, 2.5, 2.0, 2.0, 2.6, 3.2), 
+           TOTAL = c(1.79, 1.63, 1.4, 1.90, 2.20, 2.47), 
+           STRESS=c(12.5, 11.5, 13.5, 11, 12.5, 11),
+           EXHr=c(2.1, 1.9, 1.7, 2.9, 3.0, 3.2), 
+           DEVr=c(2.7, 2.5, 2.5, 2.7, 3.0, 3.0), 
+           RSAr=c(3.6, 3.5, 3.0, 3.0, 3.6, 4.2), 
+           BURNr = c(2.79, 2.63, 2.4, 2.90, 3.20, 3.47))
+q_new <- q_new %>% rbind(add_row)
+hair_q <- inner_join(q_new, hairc)
+
+##triglyerides, HDL, cholesterol 
+lipids <- bfull_data %>% select(id, timepoint, triglycerides, cholesterol, HDL) %>% filter(!is.na(triglycerides))
+lipids_q <- inner_join(lipids, q_new)
+
+##blood pressure
+bp <- bfull_data %>% select(id, timepoint, SBP, DBP) %>% filter(!is.na(SBP))
+bp_q <- inner_join(bp, q_new)
+
+##HRV
+hrv <- bfull_data %>% select(id, timepoint, HRV) %>% filter(!is.na(HRV))
+hrv_q <- inner_join(hrv, q_new)
+
+##hba1c
+hba1c <- bfull_data %>% select(id, timepoint, `HbA1C%`, eAg) %>% filter(!is.na(eAg))
+hba1c_q <- inner_join(hba1c, q_new)
+
+##epigenetics
+epigen <- bfull_data %>% select(id, timepoint, BDNFex4, BDNFex1b, SLC6A4, NR3C1) %>% filter(!is.na(BDNFex4))
+epigen_q <- inner_join(epigen, q_new)
+```
+
+# Descriptive statistics
+First, descriptive statistics are calculated to evaluate where each participant fell on average in terms of stress, burnout, and biomarker levels.
+```{r descriptives}
+dat1 %>% group_by(id) %>% summarise(mean(BURNr), sd(BURNr),
+                                     min(BURNr), max(BURNr),
+                                     mean(EXHr), sd(EXHr),
+                                     min(EXHr), max(EXHr),
+                                     mean(DEVr), sd(DEVr),
+                                     min(DEVr), max(DEVr),
+                                     mean(RSAr), sd(RSAr),
+                                     min(RSAr), max(RSAr))
+hba1c_q %>% group_by(id) %>% summarise(mean(STRESS), sd(STRESS),
+                                     min(STRESS), max(STRESS),
+                                     mean(TOTAL), sd(TOTAL),
+                                     min(TOTAL), max(TOTAL),
+                                     mean(EXH), sd(EXH),
+                                     min(EXH), max(EXH),
+                                     mean(DEV), sd(DEV),
+                                     min(DEV), max(DEV),
+                                     mean(RSA), sd(RSA),
+                                     min(RSA), max(RSA),
+                                    mean(`HbA1C%`), sd(`HbA1C%`),
+                                    min(`HbA1C%`), max(`HbA1C%`),
+                                    mean(eAg), sd(eAg),
+                                    min(eAg), max(eAg))
+lipids_q %>% group_by(id) %>% summarise(mean(triglycerides), sd(triglycerides),
+                                        min(triglycerides), max(triglycerides),
+                                        mean(cholesterol), sd(cholesterol),
+                                        min(cholesterol), max(cholesterol),
+                                        mean(HDL), sd(HDL),
+                                        min(HDL), max(HDL))
+bp_q %>% group_by(id) %>% summarise(mean(SBP), sd(SBP),
+                                    min(SBP), max(SBP),
+                                    mean(DBP), sd(DBP),
+                                    min(DBP), max(DBP))
+hair_q %>% group_by(id) %>% summarise(mean(hair_cortisol), sd(hair_cortisol),
+                                      min(hair_cortisol), max(hair_cortisol))
+hair_q %>% filter(!is.na(s1_hairocortisol)) %>% group_by(id) %>% summarise(mean(s1_hairocortisol), sd(s1_hairocortisol),
+                                                                           min(s1_hairocortisol), max(s1_hairocortisol))
+hair_q %>% filter(!is.na(s2_hcortisol)) %>% group_by(id) %>% summarise(mean(s2_hcortisol), sd(s2_hcortisol),
+                                                                           min(s2_hcortisol), max(s2_hcortisol))
+hrv_q %>% group_by(id) %>% summarise(mean(HRV), sd(HRV), 
+                                     min(HRV), max(HRV))
+epigen_q %>% group_by(id) %>% summarise(mean(BDNFex4), sd(BDNFex4),
+                                        min(BDNFex4), max(BDNFex4),
+                                        mean(BDNFex1b), sd(BDNFex1b),
+                                        min(BDNFex1b), max(BDNFex1b),
+                                        mean(SLC6A4), sd(SLC6A4),
+                                        min(SLC6A4), max(SLC6A4),
+                                        mean(NR3C1), sd(NR3C1),
+                                        min(NR3C1), max(NR3C1))
+```
+# Plotting the data
+Different plots are presented for the psychological and biomarker variables. Development of time for each variable is examined. Boxplots to look at variation in each variable by participant are shown. Finally, plots that show the development of two variables over time in the same plot are created. 
+Two ways of plotting the data of two variables over time are used throughout here.The first version uses colour only to differentiate between the psychological and biomarker variable (relies on wide data format). The second version uses a greyscale combined with different linetypes to differentiate between the psychological and biomarker variable (relies on long data format). In the paper, we use the greyscale (2nd version) as figures will be printed in greyscale and therefore this ensures the variables are easily differentiable for the reader. The colour version is an alternative for presentations/posters where colours are possible. Only one version is presented here for each plot, but each developmental plot can be used for each biomarker when using the appropriate data format.
+
+Plots: Burnout and Stress
+```{r plotting burnout and stress}
+# Boxplots for burnout and stress 
+# data from HbA1c used here
+ggplot(hba1c_q, aes(id, EXHr))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5))+
+  labs(title="Distribution for Exhaustion")
+ggplot(hba1c_q, aes(id, DEVr))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5))+
+  labs(title="Distribution for Devaluation")
+ggplot(hba1c_q, aes(id, RSAr))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5))+
+  labs(title="Distribution for Reduced Sense of Accomplishment")
+ggplot(hba1c_q, aes(id, BURNr))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5))+
+  labs(title="Distribution for Total Burnout")
+ggplot(hba1c_q, aes(id, STRESS))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Stress", limits = c(0,40))+
+  labs(title="Distribution for Stress")
+```
+
+Plots: HbA1c
+```{r plotting hba1c}
+# Adjusting dataframes further for plotting so psychological variable and biomarker align on the same scale
+plot_dat <- hba1c_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2")) %>%
+  mutate(`HbA1C%` = `HbA1C%`/2) %>%
+  select(id, timepoint, `HbA1C%`, EXHr, DEVr, RSAr, BURNr) %>%
+  rename(HbA1c = `HbA1C%`, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr) %>%
+  pivot_longer(cols = c(HbA1c, EPE, DEV, RSA, BO), names_to = "Variable", values_to = "Level")
+plot_dat$Variable <- factor(plot_dat$Variable, levels = c("BO", "EPE", "DEV", "RSA", "HbA1c"))
+plot_dat2 <- hba1c_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2")) %>%
+  mutate(`HbA1C%` = `HbA1C%`*2)  %>%
+  select(id, timepoint, `HbA1C%`, STRESS) %>%
+  rename(Stress = STRESS,
+         HbA1c = `HbA1C%`) %>%
+  pivot_longer(cols = c(HbA1c, Stress), names_to = "Variable", values_to = "Level")
+plot_dat2$Variable <- factor(plot_dat2$Variable, levels = c("Stress", "HbA1c"))
+plot_dat3 <- hba1c_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2"))  %>%
+  select(id, timepoint, `HbA1C%`, EXHr, DEVr, RSAr, BURNr) %>%
+  pivot_longer(cols = c(`HbA1C%`, EXHr, DEVr, RSAr, BURNr), names_to = "Variable", values_to = "Level")
+
+# Box plots for HbA1c
+ggplot(hba1c_q, aes(id, `HbA1C%`))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "HbA1c (%)", limits = c(4,6))+
+  labs(title="Distribution for HbA1c Levels")
+
+# Development of HbA1c over time
+ggplot(plot_dat%>%filter(Variable %in% c("HbA1c")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "HbA1c (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.95, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14)) 
+
+# Development of HbA1c over time with stress and burnout alongside
+ggplot(plot_dat%>%filter(Variable %in% c("BO", "HbA1c")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "HbA1c (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(plot_dat%>%filter(Variable %in% c("EPE", "HbA1c")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "HbA1c (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(plot_dat%>%filter(Variable %in% c("DEV", "HbA1c")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "HbA1c (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(plot_dat%>%filter(Variable %in% c("RSA", "HbA1c")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "HbA1c (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(plot_dat2, aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Stress", limits = c(0,20), sec.axis = sec_axis(trans=~.*1/2, name = "HbA1c (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.95, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14)) 
+```
+
+Plots: Hair cortisol
+```{r plotting hair cortisol}
+# Adjusting dataframes further for plotting so psychological variable and biomarker align on the same scale
+hplot_dat <- hair_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2")) %>%
+  mutate(hair_cortisol = hair_cortisol/3) %>%
+  select(id, timepoint, hair_cortisol, EXHr, DEVr, RSAr, BURNr) %>%
+  rename(HCC = hair_cortisol, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr) %>%
+  pivot_longer(cols = c(HCC, EPE, DEV, RSA, BO), names_to = "Variable", values_to = "Level")
+hplot_dat$Variable <- factor(hplot_dat$Variable, levels = c("BO", "EPE", "DEV", "RSA", "HCC"))
+hplot_dat2 <- hair_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2")) %>%
+  mutate(hair_cortisol = hair_cortisol*2) %>%
+  select(id, timepoint, hair_cortisol, EXHr, DEVr, RSAr, BURNr, STRESS) %>%
+  rename(HCC = hair_cortisol, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, Stress = STRESS) %>%
+  pivot_longer(cols = c(HCC, EPE, DEV, RSA, BO, Stress), names_to = "Variable", values_to = "Level")
+hplot_dat2$Variable <- factor(hplot_dat2$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Stress", "HCC"))
+hplot_dat3 <- hair_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2"))
+
+# Boxplot for distribution of hair cortisol
+ggplot(hplot_dat3, aes(id, hair_cortisol))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Hair Cortisol (pg/mg)", limits = c(0,10))+
+  labs(title="Distribution for Hair Cortisol")
+
+# Development of hair cortisol over time
+ggplot(hplot_dat%>%filter(Variable %in% c("HCC")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "Hair Cortisol (pg/mg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.95, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14)) 
+
+# Development of hair cortisol with stress and burnout alongside
+ggplot(hplot_dat%>%filter(Variable %in% c("BO", "HCC")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "Hair Cortisol (pg/mg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(hplot_dat%>%filter(Variable %in% c("EPE", "HCC")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "Hair Cortisol (pg/mg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(hplot_dat%>%filter(Variable %in% c("DEV", "HCC")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "Hair Cortisol (pg/mg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(hplot_dat%>%filter(Variable %in% c("RSA", "HCC")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "Hair Cortisol (pg/mg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .997),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(hplot_dat2%>%filter(Variable %in% c("Stress", "HCC")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Stress", limits = c(0,25), sec.axis = sec_axis(trans=~.*1/2, name = "Hair Cortisol (pg/mg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.95, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+# Adjusting dataframes to look at hair cortisol by segment
+shair_q <- hair_q %>% filter(!is.na(s1_hairocortisol))
+hsplot_dat <- shair_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2")) %>%
+  mutate(s1_hairocortisol = s1_hairocortisol/3, s2_hcortisol = s1_hairocortisol/2)
+hsplot_dat2 <- shair_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2")) %>%
+  mutate(s1_hairocortisol = s1_hairocortisol*2, s2_hcortisol = s2_hcortisol*2)
+hsplot_dat3 <- shair_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2"))
+
+# Boxplots for hair cortisol by segment
+ggplot(hsplot_dat3, aes(id, s1_hairocortisol))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "S1 Hair Cortisol (pg/mg)", limits = c(0,10))+
+  labs(title="Distribution of S1 Hair Cortisol")
+ggplot(hsplot_dat3, aes(id, s2_hcortisol))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "S2 Hair Cortisol (pg/mg)", limits = c(0,10))+
+  labs(title="Distribution of S2 Hair Cortisol")
+
+# Development of hair cortisol segment 1 over time
+ggplot(hsplot_dat, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=s1_hairocortisol), color = "red3")+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*3, name = "S1 Hair Cortisol (pg/mg)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of S1 Hair Cortisol")
+
+# Development of hair cortisol segment 1 with burnout and stress over time
+ggplot(hsplot_dat, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=s1_hairocortisol), color = "red3")+
+  geom_line(aes(y = BURNr), color = "blue", na.rm = TRUE)+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*3, name = "S1 Hair Cortisol (pg/mg)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of S1 Hair Cortisol and Total Burnout")
+
+ggplot(hsplot_dat, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=s1_hairocortisol), color = "red3")+
+  geom_line(aes(y = EXHr), color = "blue")+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*3, name = "S1 Hair Cortisol (pg/mg)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of S1 Hair Cortisol and Exhaustion")
+
+ggplot(hsplot_dat, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=s1_hairocortisol), color = "red3")+
+  geom_line(aes(y = DEVr), color = "blue")+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*3, name = "S1 Hair cortisol (pg/mg)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of S1 Hair Cortisol and Devaluation")
+
+ggplot(hsplot_dat, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=s1_hairocortisol), color = "red3")+
+  geom_line(aes(y = RSAr), color = "blue")+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*3, name = "S1 Hair cortisol (pg/mg)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of S1 Hair Cortisol and Reduced \nSense of Accomplishment")
+
+ggplot(hsplot_dat2, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=s1_hairocortisol), color = "red3")+
+  geom_line(aes(y = STRESS), color = "blue")+
+  scale_y_continuous(name = "Stress", limits = c(0,20), sec.axis = sec_axis(trans=~.*1/2, name = "S1 Hair cortisol (pg/mg)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of S1 Hair Cortisol and Stress")
+
+
+
+# Development of hair cortisol segment 2 over time
+ggplot(hsplot_dat, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=s2_hcortisol), color = "red3")+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "S2 Hair cortisol (pg/mg)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of S2 Hair Cortisol")
+
+# Development of hair cortisol segment 2 with stress and burnout alongside
+ggplot(hsplot_dat, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=s2_hcortisol), color = "red3")+
+  geom_line(aes(y = BURNr), color = "blue", na.rm = TRUE)+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "S2 Hair cortisol (pg/mg)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of S2 Hair Cortisol and Total Burnout")
+
+ggplot(hsplot_dat, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=s2_hcortisol), color = "red3")+
+  geom_line(aes(y = EXHr), color = "blue")+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "S2 Hair cortisol (pg/mg)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of S2 Hair Cortisol and Exhaustion")
+
+ggplot(hsplot_dat, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=s2_hcortisol), color = "red3")+
+  geom_line(aes(y = DEVr), color = "blue")+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "S2 Hair cortisol (pg/mg)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of S2 Hair Cortisol and Devaluation")
+
+ggplot(hsplot_dat, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=s2_hcortisol), color = "red3")+
+  geom_line(aes(y = RSAr), color = "blue")+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "S2 Hair cortisol (pg/mg)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of S2 Hair Cortisol and Reduced \nSense of Accomplishment")
+
+ggplot(hsplot_dat2, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=s2_hcortisol), color = "red3")+
+  geom_line(aes(y = STRESS), color = "blue")+
+  scale_y_continuous(name = "Stress", limits = c(0,20), sec.axis = sec_axis(trans=~.*1/2, name = "S2 Hair cortisol (pg/mg)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of S2 Hair Cortisol and Stress")
+```
+
+Plots: Blood lipids
+```{r blood lipids}
+# Adjusting dataframes further for plotting so psychological variable and biomarker align on the same scale
+lplot_dat <- lipids_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2")) %>%
+  mutate(cholesterol = cholesterol/2) %>%
+  select(id, timepoint, cholesterol, triglycerides, HDL, EXHr, DEVr, RSAr, BURNr) %>%
+  rename(Cholesterol = cholesterol, Triglycerides = triglycerides, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr) %>%
+  pivot_longer(cols = c(Cholesterol, Triglycerides, HDL, EPE, DEV, RSA, BO), names_to = "Variable", values_to = "Level")
+lplot_dat$Variable <- factor(lplot_dat$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Triglycerides", "Cholesterol", "HDL"))
+lplot_dat2 <- lipids_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2")) %>%
+  mutate(HDL = HDL*10, triglycerides = triglycerides*4, cholesterol = cholesterol*3) %>%
+  select(id, timepoint, cholesterol, triglycerides, HDL, EXHr, DEVr, RSAr, BURNr, STRESS) %>%
+  rename(Cholesterol = cholesterol, Triglycerides = triglycerides, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, Stress = STRESS) %>%
+  pivot_longer(cols = c(Cholesterol, Triglycerides, HDL, EPE, DEV, RSA, BO, Stress), names_to = "Variable", values_to = "Level")
+lplot_dat2$Variable <- factor(lplot_dat2$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Stress", "Triglycerides", "Cholesterol", "HDL"))
+lplot_dat3 <- lipids_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2"))
+
+# Boxplots for blood lipids
+ggplot(lplot_dat3, aes(id, triglycerides))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Triglyceride (mmol/L)", limits = c(0,4))+
+  labs(title="Distribution for Triglyceride Levels")
+ggplot(lplot_dat3, aes(id, cholesterol))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Cholesterol (mmol/L)", limits = c(0,5))+
+  labs(title="Distribution for Cholesterol Levels")
+ggplot(lplot_dat3, aes(id, HDL))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "HDL (mmol/L)", limits = c(0,2))+
+  labs(title="Distribution for HDL Levels")
+
+# Development of triglycerides over time
+ggplot(lplot_dat%>%filter(Variable %in% c("Triglycerides")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "Triglycerides (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+# Development of triglycerides with burnout and stress alongside
+ggplot(lplot_dat%>%filter(Variable %in% c("BO", "Triglycerides")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "Triglycerides (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(lplot_dat%>%filter(Variable %in% c("EPE", "Triglycerides")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "Triglycerides (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(lplot_dat%>%filter(Variable %in% c("DEV", "Triglycerides")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "Triglycerides (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(lplot_dat%>%filter(Variable %in% c("RSA", "Triglycerides")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "Triglycerides (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(lplot_dat2%>%filter(Variable %in% c("Stress", "Triglycerides")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Stress", limits = c(0,20), sec.axis = sec_axis(trans=~.*1/4, name = "Triglycerides (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+# Development of cholesterol over time
+ggplot(lplot_dat%>%filter(Variable %in% c("Cholesterol")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "Total Cholesterol (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+# Development of cholesterol with stress and burnout alongside
+ggplot(lplot_dat%>%filter(Variable %in% c("BO", "Cholesterol")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "Total Cholesterol (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(lplot_dat%>%filter(Variable %in% c("EPE", "Cholesterol")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "Total Cholesterol (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(lplot_dat%>%filter(Variable %in% c("DEV", "Cholesterol")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "Total Cholesterol (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(lplot_dat%>%filter(Variable %in% c("RSA", "Cholesterol")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "Total Cholesterol (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(lplot_dat2%>%filter(Variable %in% c("Stress", "Cholesterol")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Stress", limits = c(0,20), sec.axis = sec_axis(trans=~.*1/3, name = "Total Cholesterol (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+# Development of HDL cholesterol over time
+ggplot(lplot_dat%>%filter(Variable %in% c("HDL")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "HDL Cholesterol (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+# Development of HDL cholesterol with stress and burnout alongside
+ggplot(lplot_dat%>%filter(Variable %in% c("BO", "HDL")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "HDL Cholesterol (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(lplot_dat%>%filter(Variable %in% c("EPE", "HDL")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "HDL Cholesterol (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(lplot_dat%>%filter(Variable %in% c("DEV", "HDL")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "HDL Cholesterol (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(lplot_dat%>%filter(Variable %in% c("RSA", "HDL")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "HDL Cholesterol (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(lplot_dat2%>%filter(Variable %in% c("Stress", "HDL")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Stress", limits = c(0,20), sec.axis = sec_axis(trans=~.*1/10, name = "HDL Cholesterol (mmol/l)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+```
+
+Plots: HRV
+```{r plotting hrv}
+# Adjusting dataframes further for plotting so psychological variable and biomarker align on the same scale
+hrvplot_dat <- hrv_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2")) %>%
+  mutate(HRV = HRV/30) %>%
+  select(id, timepoint, HRV, EXHr, DEVr, RSAr, BURNr) %>%
+  rename(EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr) %>%
+  pivot_longer(cols = c(HRV, EPE, DEV, RSA, BO), names_to = "Variable", values_to = "Level")
+hrvplot_dat$Variable <- factor(hrvplot_dat$Variable, levels = c("BO", "EPE", "DEV", "RSA", "HRV"))
+hrvplot_dat2 <- hrv_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2")) %>%
+  mutate(HRV = HRV/5)%>%
+  select(id, timepoint, HRV, EXHr, DEVr, RSAr, BURNr, STRESS) %>%
+  rename(EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, Stress = STRESS) %>%
+  pivot_longer(cols = c(HRV, EPE, DEV, RSA, BO, Stress), names_to = "Variable", values_to = "Level")
+hrvplot_dat2$Variable <- factor(hrvplot_dat2$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Stress", "HRV"))
+hrvplot_dat3 <- hrv_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2")) 
+
+# Boxplots for HRV
+ggplot(hrvplot_dat3, aes(id, HRV))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "HRV (ms)", limits = c(0,150))+
+  labs(title="Distribution for HRV")
+
+# Development of HRV over time
+ggplot(hrvplot_dat%>%filter(Variable %in% c("HRV")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*30, name = "Heartrate Variability (ms)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+# Development of HRV with burnout and stress alongside 
+ggplot(hrvplot_dat%>%filter(Variable %in% c("BO", "HRV")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*30, name = "Heartrate Variability (ms)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(hrvplot_dat%>%filter(Variable %in% c("EPE", "HRV")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*30, name = "Heartrate Variability (ms)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(hrvplot_dat%>%filter(Variable %in% c("DEV", "HRV")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*30, name = "Heartrate Variability (ms)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(hrvplot_dat%>%filter(Variable %in% c("RSA", "HRV")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*30, name = "Heartrate Variability (ms)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+
+ggplot(hrvplot_dat2%>%filter(Variable %in% c("Stress", "HRV")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Stress", limits = c(0,25), sec.axis = sec_axis(trans=~.*5, name = "Heartrate Variability(ms)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)) 
+```
+
+Plots: BP
+```{r plotting bp}
+# Adjusting dataframes further for plotting so psychological variable and biomarker align on the same scale
+bpplot_dat <- bp_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2")) %>%
+  mutate(SBP = SBP/40,
+         DBP = DBP/40) %>%
+  select(id, timepoint, SBP, DBP, EXHr, DEVr, RSAr, BURNr) %>%
+  rename(EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr) %>%
+  pivot_longer(cols = c(SBP, DBP, EPE, DEV, RSA, BO), names_to = "Variable", values_to = "Level")
+bpplot_dat$Variable <- factor(bpplot_dat$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Stress", "SBP", "DBP"))
+bpplot_dat2 <- bp_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2")) %>%
+  mutate(SBP = SBP/6,
+         DBP = DBP/5)%>%
+  select(id, timepoint, SBP, DBP, EXHr, DEVr, RSAr, BURNr, STRESS) %>%
+  rename(EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, Stress = STRESS) %>%
+  pivot_longer(cols = c(SBP, DBP, EPE, DEV, RSA, BO, Stress), names_to = "Variable", values_to = "Level")
+bpplot_dat2$Variable <- factor(bpplot_dat2$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Stress", "DBP", "SBP"))
+
+# Boxplots for BP (systolic and diastolic)
+ggplot(bp_q, aes(id, SBP))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "SBP", limits = c(0,150))+
+  labs(title="Distribution for SBP")
+ggplot(bp_q, aes(id, DBP))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "DBP", limits = c(0,150))+
+  labs(title="Distribution for DBP")
+
+# Development of SBP over time
+ggplot(bpplot_dat%>%filter(Variable %in% c("SBP")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*40, name = "Systolic Blood Pressure (mmHg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+# Development of SBP with stress and burnout alongside
+ggplot(bpplot_dat%>%filter(Variable %in% c("SBP", "BO")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*40, name = "Systolic Blood Pressure (mmHg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14)
+  )
+
+ggplot(bpplot_dat%>%filter(Variable %in% c("SBP", "EPE")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*40, name = "Systolic Blood Pressure (mmHg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(bpplot_dat%>%filter(Variable %in% c("SBP", "DEV")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*40, name = "Systolic Blood Pressure (mmHg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(bpplot_dat%>%filter(Variable %in% c("SBP", "RSA")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*40, name = "Systolic Blood Pressure (mmHg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(bpplot_dat2%>%filter(Variable %in% c("SBP", "Stress")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Stress", limits = c(0,30), sec.axis = sec_axis(trans=~.*6, name = "Systolic Blood Pressure (mmHg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+# Development of DBP over time
+ggplot(bpplot_dat%>%filter(Variable %in% c("DBP")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*40, name = "Diastolic Blood Pressure (mmHg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+# Development of DBP with stress and burnout alongside
+ggplot(bpplot_dat%>%filter(Variable %in% c("DBP", "BO")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*40, name = "Diastolic Blood Pressure (mmHg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(bpplot_dat%>%filter(Variable %in% c("DBP", "EPE")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*40, name = "Diastolic Blood Pressure (mmHg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(bpplot_dat%>%filter(Variable %in% c("DBP", "DEV")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*40, name = "Diastolic Blood Pressure (mmHg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(bpplot_dat%>%filter(Variable %in% c("DBP", "RSA")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*40, name = "Diastolic Blood Pressure (mmHg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(bpplot_dat2%>%filter(Variable %in% c("DBP", "Stress")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Stress", limits = c(0,25), sec.axis = sec_axis(trans=~.*5, name = "Diastolic Blood Pressure (mmHg)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+```
+
+Plots: Epigenetic targets
+```{r plotting epigenetics}
+# Adjusting dataframes further for plotting so psychological variable and biomarker align on the same scale
+plot_dat <- epigen_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2")) %>%
+  mutate(NR3C1 = NR3C1/2, 
+         BDNFex1b = BDNFex1b/2) %>%
+  select(id, timepoint, BDNFex1b, BDNFex4, SLC6A4, NR3C1, EXHr, DEVr, RSAr, BURNr) %>%
+  rename(EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, BDNF4 = BDNFex4, BDNF1b = BDNFex1b) %>%
+  pivot_longer(cols = c(BDNF1b, BDNF4, SLC6A4, NR3C1, EPE, DEV, RSA, BO), names_to = "Variable", values_to = "Level")
+plot_dat$Variable <- factor(plot_dat$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Stress", "BDNF1b", "BDNF4", "SLC6A4", "NR3C1"))
+plot_dat2 <-  epigen_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2")) %>%
+  mutate(BDNFex4 = BDNFex4*2,
+         SLC6A4 = SLC6A4*4,
+         NR3C1 = NR3C1*3) %>%
+  select(id, timepoint, BDNFex1b, BDNFex4, SLC6A4, NR3C1, EXHr, DEVr, RSAr, BURNr, STRESS) %>%
+  rename(EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, Stress = STRESS, BDNF4 = BDNFex4, BDNF1b = BDNFex1b) %>%
+  pivot_longer(cols = c(BDNF1b, BDNF4, SLC6A4, NR3C1, EPE, DEV, RSA, BO, Stress), names_to = "Variable", values_to = "Level")
+plot_dat2$Variable <- factor(plot_dat2$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Stress", "BDNF1b", "BDNF4", "SLC6A4", "NR3C1"))
+plot_dat3 <- epigen_q %>% 
+  mutate(id = recode(id, "SB_P2" = "Participant C1", "SB_P3" = "Participant C2"))
+
+# Boxplots for DNA methylation levels of different genes and regions
+ggplot(plot_dat3, aes(id, EXH))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,4))+
+  labs(title="Distribution for Exhaustion")
+ggplot(plot_dat3, aes(id, DEV))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Devaluation", limits = c(0,4))+
+  labs(title="Distribution for Devaluation")
+ggplot(plot_dat3, aes(id, RSA))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,4))+
+  labs(title="Distribution for Reduced Sense of Accomplishment")
+ggplot(plot_dat3, aes(id, TOTAL))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,4))+
+  labs(title="Distribution for Total Burnout")
+ggplot(plot_dat3, aes(id, STRESS))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Stress", limits = c(0,40))+
+  labs(title="Distribution for Stress")
+ggplot(plot_dat3, aes(id, BDNFex4))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "BDNF Exon 4 Methylation (%)", limits = c(0,10))+
+  labs(title="Distribution for BDNF Exon 4 Methylation %")
+ggplot(plot_dat3, aes(id, BDNFex1b))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "BDNF Exon 1b Methylation (%)", limits = c(0,10))+
+  labs(title="Distribution for BDNF Exon 1b Methylation %")
+ggplot(plot_dat3, aes(id, SLC6A4))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "SLC6A4 Methylation (%)", limits = c(0,10))+
+  labs(title="Distribution for SLC6A4 Methylation %")
+ggplot(plot_dat3, aes(id, NR3C1))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "NR3C1 Methylation (%)", limits = c(0,10))+
+  labs(title="Distribution for NR3C1 Methylation %")
+
+# Development of DNA methylation levels in bdnf ex 4 
+ggplot(plot_dat%>%filter(Variable %in% c("BDNF4")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "BDNF Exon 4 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+# Development of DNA methylation in bdnf ex4 with burnout and stress alongside
+ggplot(plot_dat%>%filter(Variable %in% c("BDNF4", "BO")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "BDNF Exon 4 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat%>%filter(Variable %in% c("BDNF4", "EPE")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "BDNF Exon 4 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat%>%filter(Variable %in% c("BDNF4", "DEV")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "BDNF Exon 4 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat%>%filter(Variable %in% c("BDNF4", "RSA")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "BDNF Exon 4 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat2%>%filter(Variable %in% c("BDNF4", "Stress")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Stress", limits = c(0,20), sec.axis = sec_axis(trans=~.*1/2, name = "BDNF Exon 4 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+
+# Development of DNA methylation in bdnf ex 1b region over time
+ggplot(plot_dat%>%filter(Variable %in% c("BDNF1b")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "BDNF Exon 1b Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+# Development of DNA methylation in bdnf ex4 with stress and burnout over time
+ggplot(plot_dat%>%filter(Variable %in% c("BDNF1b", "BO")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "BDNF Exon 1b Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat%>%filter(Variable %in% c("BDNF1b", "EPE")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "BDNF Exon 1b Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat%>%filter(Variable %in% c("BDNF1b", "DEV")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "BDNF Exon 1b Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat%>%filter(Variable %in% c("BDNF1b", "RSA")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "BDNF Exon 1b Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat2%>%filter(Variable %in% c("BDNF1b", "Stress")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Stress", limits = c(0,20), sec.axis = sec_axis(trans=~.*1, name = "BDNF Exon 1b Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+# Development of DNA methylation in slc6a4 over time
+ggplot(plot_dat%>%filter(Variable %in% c("SLC6A4")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "SLC6A4 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+# Development of DNA methyalation in bdnf ex4 with stress and burnout alongside
+ggplot(plot_dat%>%filter(Variable %in% c("SLC6A4", "BO")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "SLC6A4 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat%>%filter(Variable %in% c("SLC6A4", "EPE")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "SLC6A4 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat%>%filter(Variable %in% c("SLC6A4", "DEV")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "SLC6A4 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat%>%filter(Variable %in% c("SLC6A4", "RSA")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*1, name = "SLC6A4 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat2%>%filter(Variable %in% c("SLC6A4", "Stress")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Stress", limits = c(0,20), sec.axis = sec_axis(trans=~.*1/4, name = "SLC6A4 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+# Development of DNA methyalation in nr3c1 over time
+ggplot(plot_dat%>%filter(Variable %in% c("NR3C1")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "NR3C1 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+# Development of DNA methylation in bdnf ex4 with burnout and stress alongside
+ggplot(plot_dat%>%filter(Variable %in% c("NR3C1", "BO")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "NR3C1 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat%>%filter(Variable %in% c("NR3C1", "EPE")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "NR3C1 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat%>%filter(Variable %in% c("NR3C1", "DEV")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "NR3C1 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat%>%filter(Variable %in% c("NR3C1", "RSA")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*2, name = "NR3C1 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+
+ggplot(plot_dat2%>%filter(Variable %in% c("NR3C1", "Stress")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Stress", limits = c(0,20), sec.axis = sec_axis(trans=~.*1/3, name = "NR3C1 Methylation (%)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(2,2,2,2),
+    legend.text = element_text(size=14))
+```

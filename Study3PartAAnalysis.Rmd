@@ -1,0 +1,1796 @@
+---
+title: "Study 3 Acute Biomarkers: Analysis"
+author: "H.L. Glandorf"
+date: "2023-05-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Analysis on burnout and acute biomarkers in athletes (Part A of Study 3)
+This code file analyses the data from acute biomarkers through dynamic regression modelling. 
+
+The analysis is separated into: 
+- Cleaning the data
+- Descriptive statistics
+- Plotting by biomarker
+- Dynamic regression modelling (burnout/stress -> biomarker and biomarker -> burnout/stress)
+
+# Load relevant libraries
+```{r libraries}
+library(tidyverse)
+library(ggplot2)
+library(psych)
+library(readxl)
+library(dynlm)
+```
+
+# Import data
+The data files are separated into data with the questionnaire data (demographics, stress, burnout) and biomarker data. They are imported from two files and will be joined in a later code chunk.
+```{r data import}
+q_dat <- read_excel("Biomed_QuestionnaireData1.xlsx")
+bio_dat <- read_excel("S2A_biomarkers.xlsx", 
+                      col_types = c("text", "numeric", "date", "numeric", "numeric", "numeric", "numeric", 
+                                    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
+                                    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
+                                    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"))
+# will receive a warning that some cells are turned NA due to coding numeric, this is correct since there are NAs in the data
+```
+# Cleaning data
+Cleaning the data involves several aspects. The biomarker data file holds data on both acute and chronic biomarkers. This code file only analyses the acute biomarkers, so the data needs to be filtered for participants who were assessed for acute biomarkers only. The questionnaire data needs to be recoded to fit coding from previous studies. Then total scores are calculated and the questionnaire and biomarker data combined. 
+```{r data cleaning}
+# Filter data
+q_datA <- q_dat %>% filter(id %in% c("SA_P1", "SA_P4")) # filtering for participants who were assessed for acute biomarkers
+# Recoding and calculation of total scores
+q_datA <- q_datA %>% mutate(ABQ1r = recode(ABQ_1_rev, # recoding ABQ items
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ2r = recode(ABQ_2,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ3r = recode(ABQ_3,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ4r = recode(ABQ_4,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ5r = recode(ABQ_5,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ6r = recode(ABQ_6,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ7r = recode(ABQ_7,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ8r = recode(ABQ_8,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ9r = recode(ABQ_9,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ10r = recode(ABQ_10,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ11r = recode(ABQ_11,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ12r = recode(ABQ_12,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                         ABQ13r = recode(ABQ_13,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                        ABQ14r = recode(ABQ_14_rev,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                        ABQ15r = recode(ABQ_15,
+                                       `0`=1,
+                                       `1`=2,
+                                       `2`=3,
+                                       `3`=4,
+                                       `4`=5),
+                        DEVr = (ABQ3r+ABQ5r+ABQ9r+ABQ11r+ABQ15r)/5, #creating total scores for burnout and its dimensions
+                        EXHr = (ABQ2r+ABQ4r+ABQ8r+ABQ10r+ABQ12r)/5,
+                        RSAr = (ABQ1r+ABQ5r+ABQ7r+ABQ13r+ABQ14r)/5, 
+                        BURNr = (DEVr + EXHr + RSAr)/3)
+# Join questionnaire and biomarker data
+dat <- inner_join(q_datA, bio_dat)
+dat1 <- dat %>% select(id, age, train_hrs, years_comp, season, comp, comp_imp, date, timepoint, 
+                       EXH, DEV, RSA, TOTAL, STRESS, DEVr, EXHr, RSAr, BURNr,
+                       SBP, DBP, HRV, 
+                       cortisol_conc, testosterone_conc, testosterone_cortisol, CRP_conc, 
+                       DHEAS_conc, DHEASxflow, DHEASxprotein, DHEAS_cortisol, IgA_conc, IgAxflow, IgAxprotein)
+```
+# Descriptive statistics
+First, descriptive statistics are calculated to evaluate where each participant fell on average in terms of stress, burnout, and biomarker levels.
+```{r descriptives}
+dat1 %>% group_by(id) %>% summarise(mean(train_hrs), sd(train_hrs), mean(years_comp),
+                                    mean(EXH), sd(EXH), min(EXH), max(EXH),
+                                    mean(DEV), sd(DEV), min(DEV), max(DEV),
+                                    mean(RSA), sd(RSA), min(RSA), max(RSA),
+                                    mean(TOTAL), sd(TOTAL), min(TOTAL), max(TOTAL),
+                                    mean(STRESS), sd(STRESS), min(STRESS), max(STRESS),
+                                    mean(EXHr), sd(EXHr), min(EXHr), max(EXHr),
+                                    mean(DEVr), sd(DEVr), min(DEVr), max(DEVr),
+                                    mean(RSAr), sd(RSAr), min(RSAr), max(RSAr),
+                                    mean(BURNr), sd(BURNr), min(BURNr), max(BURNr),
+                                    mean(SBP), sd(SBP), min(SBP), max(SBP),
+                                    mean(DBP), sd(DBP), min(DBP), max(DBP),
+                                    mean(cortisol_conc), sd(cortisol_conc), min(cortisol_conc), max(cortisol_conc),
+                                    mean(testosterone_conc), sd(testosterone_conc), min(testosterone_conc), max(testosterone_conc),
+                                    mean(testosterone_cortisol), sd(testosterone_cortisol), min(testosterone_cortisol), max(testosterone_cortisol),
+                                    mean(CRP_conc), sd(CRP_conc), min(CRP_conc), max(CRP_conc),
+                                    mean(DHEAS_conc), sd(DHEAS_conc), min(DHEAS_conc), max(DHEAS_conc),
+                                    mean(DHEASxflow), sd(DHEASxflow), min(DHEASxflow), max(DHEASxflow),
+                                    mean(DHEASxprotein), sd(DHEASxprotein), min(DHEASxprotein), max(DHEASxprotein),
+                                    mean(DHEAS_cortisol), sd(DHEAS_cortisol), min(DHEAS_cortisol), max(DHEAS_cortisol),
+                                    mean(IgA_conc), sd(IgA_conc), min(IgA_conc), max(IgA_conc),
+                                    mean(IgAxflow), sd(IgAxflow), min(IgAxflow), max(IgAxflow),
+                                    mean(IgAxprotein), sd(IgAxprotein), min(IgAxprotein), max(IgAxprotein))
+dat1 %>% filter(!is.na(HRV)) %>% group_by(id) %>% summarise(mean(HRV), sd(HRV), min(HRV), max(HRV))
+```
+
+# Plotting the data
+Different plots are presented for the psychological and biomarker variables. Development of time for each variable is examined. Boxplots to look at variation in each variable by participant are shown. Finally, plots that show the development of two variables over time in the same plot are created. 
+Two ways of plotting the data of two variables over time are used throughout here.The first version uses colour only to differentiate between the psychological and biomarker variable (relies on wide data format). The second version uses a greyscale combined with different linetypes to differentiate between the psychological and biomarker variable (relies on long data format). In the paper, we use the greyscale (2nd version) as figures will be printed in greyscale and therefore this ensures the variables are easily differentiable for the reader. The colour version is an alternative for presentations/posters where colours are possible. Only one version is presented here for each plot, but each developmental plot can be used for each biomarker when using the appropriate data format.
+
+# Plots: Burnout and Stress
+```{r plotting burnout and stress}
+# Development of burnout and stress over time by participant
+ggplot(dat1, aes(timepoint, EXH))+
+  facet_wrap(~id)+ 
+  geom_point()+ 
+  geom_smooth()
+ggplot(dat1, aes(timepoint, DEV))+
+  facet_wrap(~id)+ 
+  geom_point()+ 
+  geom_smooth()
+ggplot(dat1, aes(timepoint, RSA))+
+  facet_wrap(~id)+ 
+  geom_point()+ 
+  geom_smooth()
+ggplot(dat1, aes(timepoint, TOTAL))+
+  facet_wrap(~id)+ 
+  geom_point()+ 
+  geom_smooth()
+ggplot(dat1, aes(timepoint, STRESS))+
+  facet_wrap(~id)+
+  geom_point()+
+  geom_smooth()
+
+# Boxplots for burnout and stress by participant
+dat2 <- dat1 %>% mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) #correcting id for graphs
+ggplot(dat2, aes(id, EXH))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,4))+
+  labs(title="Distribution for Exhaustion")
+ggplot(dat2, aes(id, DEV))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Devaluation", limits = c(0,4))+
+  labs(title="Distribution for Devaluation")
+ggplot(dat2, aes(id, RSA))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,4))+
+  labs(title="Distribution for Reduced Sense of Accomplishment")
+ggplot(dat2, aes(id, TOTAL))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,4))+
+  labs(title="Distribution for Total Burnout")
+ggplot(dat2, aes(id, STRESS))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Stress", limits = c(0,40))+
+  labs(title="Distribution for Stress")
+```
+
+Plots: Cortisol
+```{r plotting cortisol}
+# Boxplot for cortisol concentration by participant
+ggplot(dat2, aes(id, cortisol_conc))+
+  geom_boxplot()+geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Cortisol (ug/dL)")+
+  labs(title="Distribution for Cortisol Levels")
+
+# Adjusting data to fit psychometrics and biomarkers on same scale
+cortisol_plot1 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(cortisol_conc = cortisol_conc*10) # version to use for burnout
+cortisol_plot2 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(cortisol_conc = cortisol_conc*50) # version to use for stress
+
+# Development of cortisol concentrations over time
+ggplot(cortisol_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=cortisol_conc), color = "red3")+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~./10, name = "Cortisol (ug/dL)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of Cortisol Levels")
+
+# Development of cortisol and burnout and stress alongside 
+ggplot(cortisol_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=cortisol_conc), color = "red3")+
+  geom_line(aes(y = BURNr), color = "blue")+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~./10, name = "Cortisol (ug/dL)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of Cortisol Levels and Total Burnout")
+
+ggplot(cortisol_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=cortisol_conc), color = "red3")+
+  geom_line(aes(y = EXHr), color = "blue")+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~./10, name = "Cortisol (ug/dL)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of Cortisol Levels and Exhaustion")
+
+ggplot(cortisol_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=cortisol_conc), color = "red3")+
+  geom_line(aes(y = DEVr), color = "blue")+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~./10, name = "Cortisol (ug/dL)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of Cortisol Levels and Devaluation")
+
+ggplot(cortisol_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=cortisol_conc), color = "red3")+
+  geom_line(aes(y = RSAr), color = "blue")+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~./10, name = "Cortisol (ug/dL)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of Cortisol Levels and Reduced \nSense of Accomplishment")
+
+ggplot(cortisol_plot2, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=cortisol_conc), color = "red3")+
+  geom_line(aes(y = STRESS), color = "blue")+
+  scale_y_continuous(name = "Stress", limits = c(0,20), sec.axis = sec_axis(trans=~./50, name = "Cortisol (ug/dL)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of Cortisol Levels and Stress")
+```
+
+Plots: Testosterone
+```{r plotting testosterone}
+# Boxplot for testosterone concentrations
+ggplot(dat2, aes(id, testosterone_conc))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Testosterone (pg/mL)")+
+  labs(title="Distribution for Testosterone Levels")
+
+# Adjusting data to fit psychometrics and biomarkers on same scale and creating factors for plots in long format
+testosterone_plot1a <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(testosterone_conc = testosterone_conc/70) %>%
+  select(id, timepoint, testosterone_conc, EXHr, DEVr, RSAr, BURNr) %>%
+  rename(Testo = testosterone_conc, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr)
+testosterone_plot1 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(testosterone_conc = testosterone_conc/70) %>%
+  select(id, timepoint, testosterone_conc, EXHr, DEVr, RSAr, BURNr) %>%
+  rename(Testo = testosterone_conc, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr) %>%
+  pivot_longer(cols = c(Testo, EPE, DEV, RSA, BO), names_to = "Variable", values_to = "Level")
+testosterone_plot1$Variable <- factor(testosterone_plot1$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Testo")) # to use for burnout
+testosterone_plot2 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(testosterone_conc = testosterone_conc/10) %>%
+  select(id, timepoint, testosterone_conc, EXHr, DEVr, RSAr, BURNr, STRESS) %>%
+  rename(Testo = testosterone_conc, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, Stress = STRESS) %>%
+  pivot_longer(cols = c(Testo, EPE, DEV, RSA, BO, Stress), names_to = "Variable", values_to = "Level")
+testosterone_plot2$Variable <- factor(testosterone_plot2$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Stress", "Testo")) # to use for stress
+
+# Development of testosterone concentrations over time
+ggplot(testosterone_plot1%>%filter(Variable %in% c("BO", "Testo")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*70, name = "Testosterone (pg/mL)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.95, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14)) 
+
+# Development of testosterone concentration and burnout and stress alongside
+ggplot(testosterone_plot1a, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=Testo), color = "red3")+
+  geom_line(aes(y = BO), color = "blue")+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*70, name = "Testosterone (pg/mL)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of Testosterone Levels and \nTotal Burnout")
+
+ggplot(testosterone_plot1a, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=Testo), color = "red3")+
+  geom_line(aes(y = EPE), color = "blue")+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*70, name = "Testosterone (pg/mL)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of Testosterone Levels and \nExhaustion")
+
+ggplot(testosterone_plot1a, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=Testo), color = "red3")+
+  geom_line(aes(y = DEV), color = "blue")+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*70, name = "Testosterone (pg/mL)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of Testosterone Levels and \nDevaluation")
+
+ggplot(testosterone_plot1%>%filter(Variable %in% c("RSA", "Testo")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  #geom_line(aes(y = TOTAL), color = "blue")+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*70, name = "Testosterone (pg/mL)"))+
+  scale_x_continuous(name = "Timepoint", limits = c(0,12.5))+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.98, .98),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14))
+
+ggplot(testosterone_plot2%>%filter(Variable %in% c("Stress", "Testo")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  #geom_line(aes(y = TOTAL), color = "blue")+
+  scale_y_continuous(name = "Stress", limits = c(0,35), sec.axis = sec_axis(trans=~.*10, name = "Testosterone (pg/mL)"))+
+  scale_x_continuous(name = "Timepoint", limits = c(0,12.5))+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.98, .98),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14))
+```
+
+Plots: Testosterone/Cortisol ratio
+```{r plotting t/c ratio}
+# Boxplot for testosterone/cortisol ratio distribution
+ggplot(dat2, aes(id, testosterone_cortisol))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Testosterone/Cortisol Ratio")+
+  labs(title="Distribution for Testosterone/Ratio")
+
+# Adjusting data to fit psychometrics and biomarkers on same scale
+tc_plot1 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(testosterone_cortisol = testosterone_cortisol/500) 
+tc_plot2 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(testosterone_cortisol = testosterone_cortisol/100)
+
+# Development of T/C ratio over time
+ggplot(tc_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=testosterone_cortisol), color = "red3")+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*500, name = "Testosterone/Cortisol Levels"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of Testosterone/Cortisol Levels")
+
+# Development of T/C ratio and stress and burnout alongside
+ggplot(tc_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=testosterone_cortisol), color = "red3")+
+  geom_line(aes(y = BURNr), color = "blue")+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*500, name = "Testosterone/Cortisol Ratio"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of Testosterone/Cortisol Ratio and \nTotal Burnout")
+
+ggplot(tc_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=testosterone_cortisol), color = "red3")+
+  geom_line(aes(y = EXHr), color = "blue")+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*500, name = "Testosterone/Cortisol Ratio"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of Testosterone/Cortisol Ratio and \nExhaustion")
+
+ggplot(tc_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=testosterone_cortisol), color = "red3")+
+  geom_line(aes(y = DEVr), color = "blue")+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*500, name = "Testosterone/Cortisol Ratio"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of Testosterone/Cortisol Ratio and \nDevaluation")
+
+ggplot(tc_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=testosterone_cortisol), color = "red3")+
+  geom_line(aes(y = RSAr), color = "blue")+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*500, name = "Testosterone/Cortisol Ratio"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of Testosterone/Cortisol Ratio and \nReduced Sense of Accomplishment")
+
+ggplot(tc_plot2, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=testosterone_cortisol), color = "red3")+
+  geom_line(aes(y = STRESS), color = "blue")+
+  scale_y_continuous(name = "Stress", limits = c(0,30), sec.axis = sec_axis(trans=~.*100, name = "Testosterone/Cortisol Ratio"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of Testosterone/Cortisol Ratio and \nStress")
+```
+
+Plots: C-reactive Protein
+```{r plotting crp}
+# Boxplot for CRP distribution
+ggplot(dat2, aes(id, CRP_conc))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "C-reactive Protein (pg/mL)")+
+  labs(title="Distribution for C-reactive Protein Levels")
+
+# Adjusting data to fit psychometrics and biomarkers on same scale
+crp_plot1 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(CRP_conc = CRP_conc/200)
+crp_plot2 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(CRP_conc = CRP_conc/30)
+
+# Development of CRP over time
+ggplot(crp_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=CRP_conc), color = "red3")+
+  #geom_line(aes(y = TOTAL), color = "blue")+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~./10, name = "C-reactive Protein (pg/mL)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of C-reactive Protein Levels")
+
+# Development of CRP with stress and burnout alongside
+ggplot(crp_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=CRP_conc), color = "red3")+
+  geom_line(aes(y = BURNr), color = "blue")+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*200, name = "C-reactive Protein (pg/mL)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of C-reactive Protein and \nTotal Burnout")
+
+ggplot(crp_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=CRP_conc), color = "red3")+
+  geom_line(aes(y = EXHr), color = "blue")+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*200, name = "C-reactive Protein (pg/mL)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of C-reactive Protein and \nExhaustion")
+
+ggplot(crp_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=CRP_conc), color = "red3")+
+  geom_line(aes(y = DEVr), color = "blue")+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*200, name = "C-reactive Protein (pg/mL)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of C-reactive Protein and \nDevaluation")
+
+ggplot(crp_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=CRP_conc), color = "red3")+
+  geom_line(aes(y = RSAr), color = "blue")+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*200, name = "C-reactive Protein (pg/mL)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of C-reactive Protein and \nReduced Sense of Accomplishment")
+
+ggplot(crp_plot2, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=CRP_conc), color = "red3")+
+  geom_line(aes(y = STRESS), color = "blue")+
+  scale_y_continuous(name = "Stress", limits = c(0,30), sec.axis = sec_axis(trans=~.*30, name = "C-reactive Protein (pg/mL)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of C-reactive Protein and \nStress")
+```
+
+Plots: DHEA-S (based on flowrate)
+DHEA-S is corrected for flowrate, because flowrate has an impact on DHEA-S concentrations in saliva. 
+```{r plotting dhea-s flowrate}
+# Boxplot for DHEA-S flowrate
+ggplot(dat2, aes(id, DHEASxflow))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "DHEAS flow rate (pg/min)")+
+  labs(title="Distribution for DHEA-s Flow Rate")
+
+# Adjusting data to fit psychometrics and biomarkers on same scale
+dheas_plot1a <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(DHEASxflow = DHEASxflow/600) %>%
+  select(id, timepoint, DHEASxflow, EXHr, DEVr, RSAr, BURNr, STRESS) %>%
+  rename(DHEAS = DHEASxflow, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, Stress = STRESS)
+dheas_plot1 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(DHEASxflow = DHEASxflow/600) %>%
+  select(id, timepoint, DHEASxflow, EXHr, DEVr, RSAr, BURNr, STRESS) %>%
+  rename(DHEAS = DHEASxflow, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, Stress = STRESS) %>%
+  pivot_longer(cols = c(DHEAS, EPE, DEV, RSA, BO, Stress), names_to = "Variable", values_to = "Level")
+dheas_plot1$Variable <- factor(dheas_plot1$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Stress", "DHEAS"))
+dheas_plot2a <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(DHEASxflow = DHEASxflow/100)%>%
+  select(id, timepoint, DHEASxflow, EXHr, DEVr, RSAr, BURNr, STRESS) %>%
+  rename(DHEAS = DHEASxflow, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, Stress = STRESS)
+dheas_plot2 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(DHEASxflow = DHEASxflow/100)%>%
+  select(id, timepoint, DHEASxflow, EXHr, DEVr, RSAr, BURNr, STRESS) %>%
+  rename(DHEAS = DHEASxflow, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, Stress = STRESS) %>%
+  pivot_longer(cols = c(DHEAS, EPE, DEV, RSA, BO, Stress), names_to = "Variable", values_to = "Level")
+dheas_plot2$Variable <- factor(dheas_plot2$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Stress", "DHEAS"))
+
+# Development of DHEA-S flowrate over time
+ggplot(dheas_plot1a, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=DHEAS), color = "red3")+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~./10, name = "DHEA-s/Cortisol Levels"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3",))+
+  labs(title="Development of DHEA-s Flowrate Levels")
+
+# Development of DHEA-S flowrate with burnout and stress alongside
+ggplot(dheas_plot1%>%filter(Variable %in% c("BO", "DHEAS")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*500, name = "DHEA-S Flow Rate (pg/min)"))+
+  scale_x_continuous(name = "Timepoint", limits = c(0,12.5))+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14))
+
+ggplot(dheas_plot1a, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=DHEAS), color = "red3")+
+  geom_line(aes(y = EPE), color = "blue")+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*500, name = "DHEA-S Flow Rate (pg/min)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of DHEA-s Flow Rate and \nExhaustion")
+
+ggplot(dheas_plot1%>%filter(Variable %in% c("DEV", "DHEAS")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*500, name = "DHEA-S Flow Rate (pg/min)"))+
+  scale_x_continuous(name = "Timepoint", limits = c(0,12.5))+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14))
+
+ggplot(dheas_plot1%>%filter(Variable %in% c("RSA", "DHEAS")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*500, name = "DHEA-S Flow Rate (pg/min)"))+
+  scale_x_continuous(name = "Timepoint", limits = c(0,12.5))+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14))
+
+ggplot(dheas_plot2a, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=DHEAS), color = "red3")+
+  geom_line(aes(y = Stress), color = "blue")+
+  scale_y_continuous(name = "Stress", limits = c(0,25), sec.axis = sec_axis(trans=~.*100, name = "DHEA-S Flow Rate (pg/min)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of DHEA-s Flow Rate and \nStress")
+```
+
+Plots: DHEA-s/Cortisol
+```{r plotting d/c ratio}
+# Boxplot for DHEA-S/Cortisol ratio distribution
+ggplot(dat2, aes(id, DHEAS_cortisol))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "DHEA-s/Cortisol Ratio")+
+  labs(title="Distribution for DHEA-s/Cortisol Ratio")
+
+# Adjusting data to fit psychometrics and biomarkers on same scale
+dc_plot1 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(DHEAS_cortisol = DHEAS_cortisol/10500)
+dc_plot2 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(DHEAS_cortisol = DHEAS_cortisol/2000)
+
+# Development of D/C ratio over time 
+ggplot(dc_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=DHEAS_cortisol), color = "red3")+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~./10, name = "DHEA-s/Cortisol Levels"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3",))+
+  labs(title="Development of DHEA-s/Cortisol Levels")
+
+# Development of D/C ratio with burnout and stress alongside
+ggplot(dc_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=DHEAS_cortisol), color = "red3")+
+  geom_line(aes(y = BURNr), color = "blue")+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*10500, name = "DHEA-s/Cortisol Ratio"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"))+
+  labs(title="Development of DHEA-s/Cortisol Ratio and Total Burnout")
+
+ggplot(dc_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=DHEAS_cortisol), color = "red3")+
+  geom_line(aes(y = EXHr), color = "blue")+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*10500, name = "DHEA-s/Cortisol Ratio"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"))+
+  labs(title="Development of DHEA-s/Cortisol Ratio and Exhaustion")
+
+ggplot(dc_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=DHEAS_cortisol), color = "red3")+
+  geom_line(aes(y = DEVr), color = "blue")+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*10500, name = "DHEA-s/Cortisol Ratio"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"))+
+  labs(title="Development of DHEA-s/Cortisol Ratio and Devaluation")
+
+ggplot(dc_plot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=DHEAS_cortisol), color = "red3")+
+  geom_line(aes(y = RSAr), color = "blue")+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*10500, name = "DHEA-s/Cortisol Ratio"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"))+
+  labs(title="Development of DHEA-s/Cortisol Ratio and Reduced Sense of \n Accomplishment")
+
+ggplot(dc_plot2, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=DHEAS_cortisol), color = "red3")+
+  geom_line(aes(y = STRESS), color = "blue")+
+  scale_y_continuous(name = "Stress", limits = c(0,30), sec.axis = sec_axis(trans=~.*2000, name = "DHEA-s/Cortisol Ratio"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"))+
+  labs(title="Development of DHEA-s/Cortisol Ratio and Stress")
+```
+
+Plots: sIgA (based on flowrate)
+sIgA is corrected for flowrate, because flowrate has an impact on sIgA concentrations.
+```{r plotting sIgA flowrate}
+# Boxplots for IgA flowrate
+ggplot(dat2, aes(id, IgAxflow))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "IgA flow rate (ug/min)")+
+  labs(title="Distribution of IgA Flow Rate")
+
+# Adjusting data to fit psychometrics and biomarkers on same scale
+iga_plot1a <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(IgAxflow = IgAxflow/70) %>%
+  select(id, timepoint, IgAxflow, EXHr, DEVr, RSAr, BURNr, STRESS) %>%
+  rename(sIgA = IgAxflow, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, Stress = STRESS)
+iga_plot1 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(IgAxflow = IgAxflow/70) %>%
+  select(id, timepoint, IgAxflow, EXHr, DEVr, RSAr, BURNr, STRESS) %>%
+  rename(sIgA = IgAxflow, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, Stress = STRESS) %>%
+  pivot_longer(cols = c(sIgA, EPE, DEV, RSA, BO, Stress), names_to = "Variable", values_to = "Level")
+iga_plot1$Variable <- factor(iga_plot1$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Stress", "sIgA"))
+iga_plot2a <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(IgAxflow = IgAxflow/10)%>%
+  select(id, timepoint, IgAxflow, EXHr, DEVr, RSAr, BURNr, STRESS) %>%
+  rename(sIgA = IgAxflow, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, Stress = STRESS)
+iga_plot2 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(IgAxflow = IgAxflow/10)%>%
+  select(id, timepoint, IgAxflow, EXHr, DEVr, RSAr, BURNr, STRESS) %>%
+  rename(sIgA = IgAxflow, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, Stress = STRESS) %>%
+  pivot_longer(cols = c(sIgA, EPE, DEV, RSA, BO, Stress), names_to = "Variable", values_to = "Level")
+iga_plot2$Variable <- factor(iga_plot2$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Stress", "sIgA"))
+
+# Development of sIgA flowrate over time
+ggplot(iga_plot1a, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=sIgA), color = "red3")+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~./10, name = "sIgA Flow Rate (ug/min)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of sIgA Flow Rate")
+
+# Development of sIgA flowrate with stress and burnout alongside
+ggplot(iga_plot1a, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=sIgA), color = "red3")+
+  geom_line(aes(y = BO), color = "blue")+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*70, name = "sIgA Flow Rate (ug/min)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of sIgA Flow Rate and Total Burnout")
+
+ggplot(iga_plot1a, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=sIgA), color = "red3")+
+  geom_line(aes(y = EPE), color = "blue")+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*70, name = "sIgA Flow Rate (ug/min)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of sIgA Flow Rate and Exhaustion")
+
+ggplot(iga_plot1%>%filter(Variable %in% c("DEV", "sIgA")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*500, name = "sIgA Flow Rate (pg/min)"))+
+  scale_x_continuous(name = "Timepoint", limits = c(0,12.5))+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14))
+
+ggplot(iga_plot1a, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=sIgA), color = "red3")+
+  geom_line(aes(y = RSA), color = "blue")+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*70, name = "sIgA Flow Rate (ug/min)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of sIgA Flow Rate and Reduced \nSense of Accomplishment")
+
+ggplot(iga_plot2a, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=sIgA), color = "red3")+
+  geom_line(aes(y = Stress), color = "blue")+
+  scale_y_continuous(name = "Stress", limits = c(0,25), sec.axis = sec_axis(trans=~.*10, name = "sIgA Flow Rate (ug/min)"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of sIgA Flow Rate and Stress")
+```
+
+Plots: Blood Pressure and HRV
+```{r plotting BP and HRV, warning=FALSE}
+# Boxplots for blood pressure and HRV distribution
+# HRV plots will show warnings, since there are missing values in the data, plot will be shown regardless
+ggplot(dat2, aes(id, SBP))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Systolic Blood Pressure")+
+  labs(title="Distribution of SBP")
+ggplot(dat2, aes(id, DBP))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Diastolic Blood Pressure")+
+  labs(title="Distribution of DBP")
+ggplot(dat2, aes(id, HRV))+
+  geom_boxplot()+
+  geom_jitter(width = 0.1, height = 0.1)+
+  theme_bw()+
+  scale_x_discrete(name = "")+
+  scale_y_continuous(name = "Heart Rate Variability")+
+  labs(title="Distribution of HRV")
+
+# Adjusting data to fit psychological and biomarker data on the same scale
+bhplot1 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(SBP = SBP/40,
+         DBP = DBP/25,
+         HRV = HRV/50)
+bhplot2 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(SBP = SBP/10,
+         DBP = DBP/10,
+         HRV = HRV/10)
+
+# Development of SBP over time
+ggplot(bhplot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=SBP), color = "red3")+
+  #geom_line(aes(y = TOTAL), color = "blue")+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*40, name = "SBP"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of SBP")
+
+# Development of SBP with stress and burnout alongside
+ggplot(bhplot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=SBP), color = "red3")+
+  geom_line(aes(y = BURNr), color = "blue")+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*40, name = "SBP"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of SBP and Total Burnout")
+
+ggplot(bhplot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=SBP), color = "red3")+
+  geom_line(aes(y = EXHr), color = "blue")+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*40, name = "SBP"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of SBP and Exhaustion")
+
+ggplot(bhplot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=SBP), color = "red3")+
+  geom_line(aes(y = DEVr), color = "blue")+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*40, name = "SBP"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of SBP and Devaluation")
+
+ggplot(bhplot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=SBP), color = "red3")+
+  geom_line(aes(y = RSAr), color = "blue")+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*40, name = "SBP"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of SBP and Reduced \nSense of Accomplishment")
+
+ggplot(bhplot2, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=SBP), color = "red3")+
+  geom_line(aes(y = STRESS), color = "blue")+
+  scale_y_continuous(name = "Stress", limits = c(0,25), sec.axis = sec_axis(trans=~.*10, name = "SBP"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of SBP and Stress")
+
+
+
+# Development of DBP over time
+ggplot(bhplot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=DBP), color = "red3")+
+  #geom_line(aes(y = TOTAL), color = "blue")+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*25, name = "DBP"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of DBP")
+
+# Development of DBP with stress and burnout alongside
+ggplot(bhplot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=DBP), color = "red3")+
+  geom_line(aes(y = BURNr), color = "blue")+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*25, name = "DBP"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of DBP and Total Burnout")
+
+ggplot(bhplot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=DBP), color = "red3")+
+  geom_line(aes(y = EXHr), color = "blue")+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*25, name = "DBP"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of DBP and Exhaustion")
+
+ggplot(bhplot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=DBP), color = "red3")+
+  geom_line(aes(y = DEVr), color = "blue")+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*25, name = "DBP"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of DBP and Devaluation")
+
+ggplot(bhplot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=DBP), color = "red3")+
+  geom_line(aes(y = RSAr), color = "blue")+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*25, name = "DBP"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of DBP and Reduced \nSense of Accomplishment")
+
+ggplot(bhplot2, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=DBP), color = "red3")+
+  geom_line(aes(y = STRESS), color = "blue")+
+  scale_y_continuous(name = "Stress", limits = c(0,25), sec.axis = sec_axis(trans=~.*10, name = "DBP"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of DBP and Stress")
+
+
+# Development of HRV over time
+ggplot(bhplot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=HRV), color = "red3")+
+  scale_y_continuous(name = "", limits = c(0,5), sec.axis = sec_axis(trans=~.*50, name = "HRV"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of HRV")
+
+# Development of HRV with stress and burnout alongside
+ggplot(bhplot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=HRV), color = "red3")+
+  geom_line(aes(y = BURNr), color = "blue")+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*50, name = "HRV"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of HRV and Total Burnout")
+
+ggplot(bhplot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=HRV), color = "red3")+
+  geom_line(aes(y = EXHr), color = "blue")+
+  scale_y_continuous(name = "Exhaustion", limits = c(0,5), sec.axis = sec_axis(trans=~.*50, name = "HRV"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of HRV and Exhaustion")
+
+ggplot(bhplot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=HRV), color = "red3")+
+  geom_line(aes(y = DEVr), color = "blue")+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*50, name = "HRV"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of HRV and Devaluation")
+
+ggplot(bhplot1, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=HRV), color = "red3")+
+  geom_line(aes(y = RSAr), color = "blue")+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*50, name = "HRV"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of HRV and Reduced \nSense of Accomplishment")
+
+ggplot(bhplot2, aes(timepoint))+
+  facet_grid(~id)+
+  geom_line(aes(y=HRV), color = "red3")+
+  geom_line(aes(y = STRESS), color = "blue")+
+  scale_y_continuous(name = "Stress", limits = c(0,25), sec.axis = sec_axis(trans=~.*10, name = "HRV"))+
+  theme_bw()+
+  theme(
+    axis.title.y = element_text(color="blue"),
+    axis.title.y.right = element_text(color = "red3"),
+    text = element_text(size = 20))+
+  labs(title="Development of HRV and Stress")
+```
+
+# Dynamic regression modelling: Stress/Burnout -> Biomarker
+Models for participant A1 are carried out first, then models for participant A2.
+```{r dr models psych to biomarker}
+##Participant A1
+dat_p1 <- dat1 %>% 
+  filter(id =="SA_P1") %>% 
+  select(date, TOTAL, EXH, DEV, RSA, STRESS, SBP, DBP, HRV, 
+         cortisol_conc, testosterone_conc, testosterone_cortisol, 
+         CRP_conc,DHEAS_conc, DHEASxflow, DHEASxprotein, DHEAS_cortisol, 
+         IgA_conc, IgAxflow, IgAxprotein)
+datep1 <- dat_p1 %>% select(date)
+scaledp1 <- data.frame(scale(dat_p1[-1]))
+dat_p1z <- bind_cols(datep1, scaledp1)
+
+#convert to zoo
+zoo_p1 <- zoo(dat_p1[,-1], order.by = as.Date(dat_p1$date))
+
+##cortisol
+d1_reg_total_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(TOTAL)) + scale(d(L(cortisol_conc))), data=zoo_p1)
+d1_reg_exh_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(EXH)) + scale(d(L(cortisol_conc))), data=zoo_p1)
+d1_reg_dev_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(DEV)) + scale(d(L(cortisol_conc))), data=zoo_p1)
+d1_reg_rsa_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(RSA)) + scale(d(L(cortisol_conc))), data=zoo_p1)
+d1_reg_stress_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(STRESS)) + scale(d(L(cortisol_conc))), data=zoo_p1)
+
+summary(d1_reg_total_cor)
+summary(d1_reg_exh_cor)
+summary(d1_reg_dev_cor)
+summary(d1_reg_rsa_cor)
+summary(d1_reg_stress_cor)
+
+##testosterone
+d1_reg_total_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(TOTAL)) + scale(d(L(testosterone_conc))), data=zoo_p1)
+d1_reg_exh_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(EXH)) + scale(d(L(testosterone_conc))), data=zoo_p1)
+d1_reg_dev_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(DEV)) + scale(d(L(testosterone_conc))), data=zoo_p1)
+d1_reg_rsa_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(RSA)) + scale(d(L(testosterone_conc))), data=zoo_p1)
+d1_reg_stress_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(STRESS)) + scale(d(L(testosterone_conc))), data=zoo_p1)
+
+summary(d1_reg_total_test)
+summary(d1_reg_exh_test)
+summary(d1_reg_dev_test)
+summary(d1_reg_rsa_test)
+summary(d1_reg_stress_test)
+
+##testosterone to cortisol
+d1_reg_total_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(TOTAL)) + scale(d(L(testosterone_cortisol))), data=zoo_p1)
+d1_reg_exh_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(EXH)) + scale(d(L(testosterone_cortisol))), data=zoo_p1)
+d1_reg_dev_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(DEV)) + scale(d(L(testosterone_cortisol))), data=zoo_p1)
+d1_reg_rsa_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(RSA)) + scale(d(L(testosterone_cortisol))), data=zoo_p1)
+d1_reg_stress_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(STRESS)) + scale(d(L(testosterone_cortisol))), data=zoo_p1)
+
+summary(d1_reg_total_tc)
+summary(d1_reg_exh_tc)
+summary(d1_reg_dev_tc)
+summary(d1_reg_rsa_tc)
+summary(d1_reg_stress_tc)
+
+##CRP
+d1_reg_total_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(TOTAL)) + scale(d(L(CRP_conc))), data=zoo_p1)
+d1_reg_exh_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(EXH)) + scale(d(L(CRP_conc))), data=zoo_p1)
+d1_reg_dev_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(DEV)) + scale(d(L(CRP_conc))), data=zoo_p1)
+d1_reg_rsa_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(RSA)) + scale(d(L(CRP_conc))), data=zoo_p1)
+d1_reg_stress_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(STRESS)) + scale(d(L(CRP_conc))), data=zoo_p1)
+
+summary(d1_reg_total_crp)
+summary(d1_reg_exh_crp)
+summary(d1_reg_dev_crp)
+summary(d1_reg_rsa_crp)
+summary(d1_reg_stress_crp)
+
+##DHEAS
+d1_reg_total_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(TOTAL)) + scale(d(L(DHEASxflow))), data=zoo_p1)
+d1_reg_exh_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(EXH)) + scale(d(L(DHEASxflow))), data=zoo_p1)
+d1_reg_dev_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(DEV)) + scale(d(L(DHEASxflow))), data=zoo_p1)
+d1_reg_rsa_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(RSA)) + scale(d(L(DHEASxflow))), data=zoo_p1)
+d1_reg_stress_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(STRESS)) + scale(d(L(DHEASxflow))), data=zoo_p1)
+
+summary(d1_reg_total_dheasf)
+summary(d1_reg_exh_dheasf)
+summary(d1_reg_dev_dheasf)
+summary(d1_reg_rsa_dheasf)
+summary(d1_reg_stress_dheasf)
+
+##IgA
+d1_reg_total_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(TOTAL)) + scale(d(L(IgAxflow))), data=zoo_p1)
+d1_reg_exh_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(EXH)) + scale(d(L(IgAxflow))), data=zoo_p1)
+d1_reg_dev_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(DEV)) + scale(d(L(IgAxflow))), data=zoo_p1)
+d1_reg_rsa_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(RSA)) + scale(d(L(IgAxflow))), data=zoo_p1)
+d1_reg_stress_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(STRESS)) + scale(d(L(IgAxflow))), data=zoo_p1)
+
+summary(d1_reg_total_igaf)
+summary(d1_reg_exh_igaf)
+summary(d1_reg_dev_igaf)
+summary(d1_reg_rsa_igaf)
+summary(d1_reg_stress_igaf)
+
+##sbp
+d1_reg_total_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(TOTAL)) + scale(d(L(SBP))), data=zoo_p1)
+d1_reg_exh_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(EXH)) + scale(d(L(SBP))), data=zoo_p1)
+d1_reg_dev_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(DEV)) + scale(d(L(SBP))), data=zoo_p1)
+d1_reg_rsa_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(RSA)) + scale(d(L(SBP))), data=zoo_p1)
+d1_reg_stress_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(STRESS)) + scale(d(L(SBP))), data=zoo_p1)
+
+summary(d1_reg_total_sbp)
+summary(d1_reg_exh_sbp)
+summary(d1_reg_dev_sbp)
+summary(d1_reg_rsa_sbp)
+summary(d1_reg_stress_sbp)
+
+##dbp
+d1_reg_total_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(TOTAL)) + scale(d(L(DBP))), data=zoo_p1)
+d1_reg_exh_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(EXH)) + scale(d(L(DBP))), data=zoo_p1)
+d1_reg_dev_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(DEV)) + scale(d(L(DBP))), data=zoo_p1)
+d1_reg_rsa_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(RSA)) + scale(d(L(DBP))), data=zoo_p1)
+d1_reg_stress_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(STRESS)) + scale(d(L(DBP))), data=zoo_p1)
+
+summary(d1_reg_total_dbp)
+summary(d1_reg_exh_dbp)
+summary(d1_reg_dev_dbp)
+summary(d1_reg_rsa_dbp)
+summary(d1_reg_stress_dbp)
+
+##HRV
+d1_reg_total_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(TOTAL)) + scale(d(L(HRV))), data=zoo_p1)
+d1_reg_exh_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(EXH)) + scale(d(L(HRV))), data=zoo_p1)
+d1_reg_dev_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(DEV)) + scale(d(L(HRV))), data=zoo_p1)
+d1_reg_rsa_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(RSA)) + scale(d(L(HRV))), data=zoo_p1)
+d1_reg_stress_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(STRESS)) + scale(d(L(HRV))), data=zoo_p1)
+
+summary(d1_reg_total_hrv)
+summary(d1_reg_exh_hrv)
+summary(d1_reg_dev_hrv)
+summary(d1_reg_rsa_hrv)
+summary(d1_reg_stress_hrv)
+
+
+##Participant A2
+dat_p4 <- dat1 %>% 
+  filter(id =="SA_P4") %>% 
+  select(date, TOTAL, EXH, DEV, RSA, STRESS, SBP, DBP, HRV,
+         cortisol_conc, testosterone_conc, testosterone_cortisol, CRP_conc,
+         DHEAS_conc, DHEASxflow, DHEASxprotein, DHEAS_cortisol, 
+         IgA_conc, IgAxflow, IgAxprotein)
+datep4 <- dat_p4 %>% select(date)
+scaledp4 <- data.frame(scale(dat_p4[-1]))
+dat_p4z <- bind_cols(datep4, scaledp4)
+
+#convert to zoo
+zoo_p4 <- zoo(dat_p4[,-1], order.by = as.Date(dat_p4$date))
+
+##cortisol
+d4_reg_total_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(TOTAL)) + scale(d(L(cortisol_conc))), data=zoo_p4)
+d4_reg_exh_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(EXH)) + scale(d(L(cortisol_conc))), data=zoo_p4)
+d4_reg_dev_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(DEV)) + scale(d(L(cortisol_conc))), data=zoo_p4)
+d4_reg_rsa_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(RSA)) + scale(d(L(cortisol_conc))), data=zoo_p4)
+d4_reg_stress_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(STRESS)) + scale(d(L(cortisol_conc))), data=zoo_p4)
+
+summary(d4_reg_total_cor)
+summary(d4_reg_exh_cor)
+summary(d4_reg_dev_cor)
+summary(d4_reg_rsa_cor)
+summary(d4_reg_stress_cor)
+
+##testosterone
+d4_reg_total_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(TOTAL)) + scale(d(L(testosterone_conc))), data=zoo_p4)
+d4_reg_exh_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(EXH)) + scale(d(L(testosterone_conc))), data=zoo_p4)
+d4_reg_dev_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(DEV)) + scale(d(L(testosterone_conc))), data=zoo_p4)
+d4_reg_rsa_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(RSA)) + scale(d(L(testosterone_conc))), data=zoo_p4)
+d4_reg_stress_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(STRESS)) + scale(d(L(testosterone_conc))), data=zoo_p4)
+
+summary(d4_reg_total_test)
+summary(d4_reg_exh_test)
+summary(d4_reg_dev_test)
+summary(d4_reg_rsa_test)
+summary(d4_reg_stress_test)
+
+##testosterone to cortisol
+d4_reg_total_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(TOTAL)) + scale(d(L(testosterone_cortisol))), data=zoo_p4)
+d4_reg_exh_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(EXH)) + scale(d(L(testosterone_cortisol))), data=zoo_p4)
+d4_reg_dev_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(DEV)) + scale(d(L(testosterone_cortisol))), data=zoo_p4)
+d4_reg_rsa_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(RSA)) + scale(d(L(testosterone_cortisol))), data=zoo_p4)
+d4_reg_stress_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(STRESS)) + scale(d(L(testosterone_cortisol))), data=zoo_p4)
+
+summary(d4_reg_total_tc)
+summary(d4_reg_exh_tc)
+summary(d4_reg_dev_tc)
+summary(d4_reg_rsa_tc)
+summary(d4_reg_stress_tc)
+
+##CRP
+d4_reg_total_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(TOTAL)) + scale(d(L(CRP_conc))), data=zoo_p4)
+d4_reg_exh_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(EXH)) + scale(d(L(CRP_conc))), data=zoo_p4)
+d4_reg_dev_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(DEV)) + scale(d(L(CRP_conc))), data=zoo_p4)
+d4_reg_rsa_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(RSA)) + scale(d(L(CRP_conc))), data=zoo_p4)
+d4_reg_stress_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(STRESS)) + scale(d(L(CRP_conc))), data=zoo_p4)
+
+summary(d4_reg_total_crp)
+summary(d4_reg_exh_crp)
+summary(d4_reg_dev_crp)
+summary(d4_reg_rsa_crp)
+summary(d4_reg_stress_crp)
+
+##DHEAS
+d4_reg_total_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(TOTAL)) + scale(d(L(DHEASxflow))), data=zoo_p4)
+d4_reg_exh_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(EXH)) + scale(d(L(DHEASxflow))), data=zoo_p4)
+d4_reg_dev_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(DEV)) + scale(d(L(DHEASxflow))), data=zoo_p4)
+d4_reg_rsa_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(RSA)) + scale(d(L(DHEASxflow))), data=zoo_p4)
+d4_reg_stress_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(STRESS)) + scale(d(L(DHEASxflow))), data=zoo_p4)
+
+summary(d4_reg_total_dheasf)
+summary(d4_reg_exh_dheasf)
+summary(d4_reg_dev_dheasf)
+summary(d4_reg_rsa_dheasf)
+summary(d4_reg_stress_dheasf)
+
+##DHEA-s/Cortisol Ratio
+d4_reg_total_dc <- dynlm(formula = d(DHEAS_cortisol) ~ d(TOTAL) + d(L(DHEAS_cortisol)), data=zoo_p4)
+d4_reg_exh_dc <- dynlm(formula = d(DHEAS_cortisol) ~ d(EXH) + d(L(DHEAS_cortisol)), data=zoo_p4)
+d4_reg_dev_dc <- dynlm(formula = d(DHEAS_cortisol) ~ d(DEV) + d(L(DHEAS_cortisol)), data=zoo_p4)
+d4_reg_rsa_dc <- dynlm(formula = d(DHEAS_cortisol) ~ d(RSA) + d(L(DHEAS_cortisol)), data=zoo_p4)
+d4_reg_stress_dc <- dynlm(formula = d(DHEAS_cortisol) ~ d(STRESS) + d(L(DHEAS_cortisol)), data=zoo_p4)
+
+summary(d4_reg_total_dc)
+summary(d4_reg_exh_dc)
+summary(d4_reg_dev_dc)
+summary(d4_reg_rsa_dc)
+summary(d4_reg_stress_dc)
+
+##IgA
+d4_reg_total_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(TOTAL)) + scale(d(L(IgAxflow))), data=zoo_p4)
+d4_reg_exh_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(EXH)) + scale(d(L(IgAxflow))), data=zoo_p4)
+d4_reg_dev_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(DEV)) + scale(d(L(IgAxflow))), data=zoo_p4)
+d4_reg_rsa_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(RSA)) + scale(d(L(IgAxflow))), data=zoo_p4)
+d4_reg_stress_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(STRESS)) + scale(d(L(IgAxflow))), data=zoo_p4)
+
+summary(d4_reg_total_igaf)
+summary(d4_reg_exh_igaf)
+summary(d4_reg_dev_igaf)
+summary(d4_reg_rsa_igaf)
+summary(d4_reg_stress_igaf)
+
+##sbp
+d4_reg_total_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(TOTAL)) + scale(d(L(SBP))), data=zoo_p4)
+d4_reg_exh_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(EXH)) + scale(d(L(SBP))), data=zoo_p4)
+d4_reg_dev_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(DEV)) + scale(d(L(SBP))), data=zoo_p4)
+d4_reg_rsa_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(RSA)) + scale(d(L(SBP))), data=zoo_p4)
+d4_reg_stress_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(STRESS)) + scale(d(L(SBP))), data=zoo_p4)
+
+summary(d4_reg_total_sbp)
+summary(d4_reg_exh_sbp)
+summary(d4_reg_dev_sbp)
+summary(d4_reg_rsa_sbp)
+summary(d4_reg_stress_sbp)
+
+##dbp
+d4_reg_total_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(TOTAL)) + scale(d(L(DBP))), data=zoo_p4)
+d4_reg_exh_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(EXH)) + scale(d(L(DBP))), data=zoo_p4)
+d4_reg_dev_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(DEV)) + scale(d(L(DBP))), data=zoo_p4)
+d4_reg_rsa_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(RSA)) + scale(d(L(DBP))), data=zoo_p4)
+d4_reg_stress_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(STRESS)) + scale(d(L(DBP))), data=zoo_p4)
+
+summary(d4_reg_total_dbp)
+summary(d4_reg_exh_dbp)
+summary(d4_reg_dev_dbp)
+summary(d4_reg_rsa_dbp)
+summary(d4_reg_stress_dbp)
+
+##HRV
+d4_reg_total_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(TOTAL)) + scale(d(L(HRV))), data=zoo_p4)
+d4_reg_exh_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(EXH)) + scale(d(L(HRV))), data=zoo_p4)
+d4_reg_dev_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(DEV)) + scale(d(L(HRV))), data=zoo_p4)
+d4_reg_rsa_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(RSA)) + scale(d(L(HRV))), data=zoo_p4)
+d4_reg_stress_hrv <- dynlm(formula = d(HRV) ~ d(STRESS) + d(L(HRV)), data=zoo_p4)
+
+summary(d4_reg_total_hrv)
+summary(d4_reg_exh_hrv)
+summary(d4_reg_dev_hrv)
+summary(d4_reg_rsa_hrv)
+summary(d4_reg_stress_hrv)
+```
+
+# Dynamic regression modelling: Biomarker -> Burnout/Stress
+Models for participant A1 are carried out first, then models for participant A2. 
+```{r dr models biomarker to psych}
+##cortisol
+d1r_reg_total_cor <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(cortisol_conc)) + scale(d(L(TOTAL))), data=zoo_p1)
+d1r_reg_exh_cor <- dynlm(formula = scale(d(EXH)) ~ scale(d(cortisol_conc)) + scale(d(L(EXH))), data=zoo_p1)
+d1r_reg_dev_cor <- dynlm(formula = scale(d(DEV)) ~ scale(d(cortisol_conc)) + scale(d(L(DEV))), data=zoo_p1)
+d1r_reg_rsa_cor <- dynlm(formula = scale(d(RSA)) ~ scale(d(cortisol_conc)) + scale(d(L(RSA))), data=zoo_p1)
+d1r_reg_stress_cor <- dynlm(formula = scale(d(STRESS)) ~ scale(d(cortisol_conc)) + scale(d(L(STRESS))), data=zoo_p1)
+
+summary(d1r_reg_total_cor)
+summary(d1r_reg_exh_cor)
+summary(d1r_reg_dev_cor)
+summary(d1r_reg_rsa_cor)
+summary(d1r_reg_stress_cor)
+
+##testosterone
+d1r_reg_total_test <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(testosterone_conc)) + scale(d(L(TOTAL))), data=zoo_p1)
+d1r_reg_exh_test <- dynlm(formula = scale(d(EXH)) ~ scale(d(testosterone_conc)) + scale(d(L(EXH))), data=zoo_p1)
+d1r_reg_dev_test <- dynlm(formula = scale(d(DEV)) ~ scale(d(testosterone_conc)) + scale(d(L(DEV))), data=zoo_p1)
+d1r_reg_rsa_test <- dynlm(formula = scale(d(RSA)) ~ scale(d(testosterone_conc)) + scale(d(L(RSA))), data=zoo_p1)
+d1r_reg_stress_test <- dynlm(formula = scale(d(STRESS)) ~ scale(d(testosterone_conc)) + scale(d(L(STRESS))), data=zoo_p1)
+
+summary(d1r_reg_total_test)
+summary(d1r_reg_exh_test)
+summary(d1r_reg_dev_test)
+summary(d1r_reg_rsa_test)
+summary(d1r_reg_stress_test)
+
+##testosterone to cortisol
+d1r_reg_total_tc <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(testosterone_cortisol)) + scale(d(L(TOTAL))), data=zoo_p1)
+d1r_reg_exh_tc <- dynlm(formula = scale(d(EXH)) ~ scale(d(testosterone_cortisol)) + scale(d(L(EXH))), data=zoo_p1)
+d1r_reg_dev_tc <- dynlm(formula = scale(d(DEV)) ~ scale(d(testosterone_cortisol)) + scale(d(L(DEV))), data=zoo_p1)
+d1r_reg_rsa_tc <- dynlm(formula = scale(d(RSA)) ~ scale(d(testosterone_cortisol)) + scale(d(L(RSA))), data=zoo_p1)
+d1r_reg_stress_tc <- dynlm(formula = scale(d(STRESS)) ~ scale(d(testosterone_cortisol)) + scale(d(L(STRESS))), data=zoo_p1)
+
+summary(d1r_reg_total_tc)
+summary(d1r_reg_exh_tc)
+summary(d1r_reg_dev_tc)
+summary(d1r_reg_rsa_tc)
+summary(d1r_reg_stress_tc)
+
+##CRP
+d1r_reg_total_crp <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(CRP_conc)) + scale(d(L(TOTAL))), data=zoo_p1)
+d1r_reg_exh_crp <- dynlm(formula = scale(d(EXH)) ~ scale(d(CRP_conc)) + scale(d(L(EXH))), data=zoo_p1)
+d1r_reg_dev_crp <- dynlm(formula = scale(d(DEV)) ~ scale(d(CRP_conc)) + scale(d(L(DEV))), data=zoo_p1)
+d1r_reg_rsa_crp <- dynlm(formula = scale(d(RSA)) ~ scale(d(CRP_conc)) + scale(d(L(RSA))), data=zoo_p1)
+d1r_reg_stress_crp <- dynlm(formula = scale(d(STRESS)) ~ scale(d(CRP_conc)) + scale(d(L(STRESS))), data=zoo_p1)
+
+summary(d1r_reg_total_crp)
+summary(d1r_reg_exh_crp)
+summary(d1r_reg_dev_crp)
+summary(d1r_reg_rsa_crp)
+summary(d1r_reg_stress_crp)
+
+##DHEAS
+d1r_reg_total_dheasf <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(DHEASxflow)) + scale(d(L(TOTAL))), data=zoo_p1)
+d1r_reg_exh_dheasf <- dynlm(formula = scale(d(EXH)) ~ scale(d(DHEASxflow)) + scale(d(L(EXH))), data=zoo_p1)
+d1r_reg_dev_dheasf <- dynlm(formula = scale(d(DEV)) ~ scale(d(DHEASxflow)) + scale(d(L(DEV))), data=zoo_p1)
+d1r_reg_rsa_dheasf <- dynlm(formula = scale(d(RSA)) ~ scale(d(DHEASxflow)) + scale(d(L(RSA))), data=zoo_p1)
+d1r_reg_stress_dheasf <- dynlm(formula = scale(d(STRESS)) ~ scale(d(DHEASxflow)) + scale(d(L(STRESS))), data=zoo_p1)
+
+summary(d1r_reg_total_dheasf)
+summary(d1r_reg_exh_dheasf)
+summary(d1r_reg_dev_dheasf)
+summary(d1r_reg_rsa_dheasf)
+summary(d1r_reg_stress_dheasf)
+
+##DHEA-s/Cortisol Ratio
+d1r_reg_total_dc <- dynlm(formula = d(TOTAL) ~ d(DHEAS_cortisol) + d(L(TOTAL)), data=zoo_p1)
+d1r_reg_exh_dc <- dynlm(formula = d(EXH) ~ d(DHEAS_cortisol) + d(L(EXH)), data=zoo_p1)
+d1r_reg_dev_dc <- dynlm(formula = d(DEV) ~ d(DHEAS_cortisol) + d(L(DEV)), data=zoo_p1)
+d1r_reg_rsa_dc <- dynlm(formula = d(RSA) ~ d(DHEAS_cortisol) + d(L(RSA)), data=zoo_p1)
+d1r_reg_stress_dc <- dynlm(formula = d(STRESS) ~ d(DHEAS_cortisol) + d(L(STRESS)), data=zoo_p1)
+
+summary(d1r_reg_total_dc)
+summary(d1r_reg_exh_dc)
+summary(d1r_reg_dev_dc)
+summary(d1r_reg_rsa_dc)
+summary(d1r_reg_stress_dc)
+
+##IgA
+d1r_reg_total_igaf <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(IgAxflow)) + scale(d(L(TOTAL))), data=zoo_p1)
+d1r_reg_exh_igaf <- dynlm(formula = scale(d(EXH)) ~ scale(d(IgAxflow)) + scale(d(L(EXH))), data=zoo_p1)
+d1r_reg_dev_igaf <- dynlm(formula = scale(d(DEV)) ~ scale(d(IgAxflow)) + scale(d(L(DEV))), data=zoo_p1)
+d1r_reg_rsa_igaf <- dynlm(formula = scale(d(RSA)) ~ scale(d(IgAxflow)) + scale(d(L(RSA))), data=zoo_p1)
+d1r_reg_stress_igaf <- dynlm(formula = scale(d(STRESS)) ~ scale(d(IgAxflow)) + scale(d(L(STRESS))), data=zoo_p1)
+
+summary(d1r_reg_total_igaf)
+summary(d1r_reg_exh_igaf)
+summary(d1r_reg_dev_igaf)
+summary(d1r_reg_rsa_igaf)
+summary(d1r_reg_stress_igaf)
+
+##sbp
+d1r_reg_total_sbp <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(SBP)) + scale(d(L(TOTAL))), data=zoo_p1)
+d1r_reg_exh_sbp <- dynlm(formula = scale(d(EXH)) ~ scale(d(SBP)) + scale(d(L(EXH))), data=zoo_p1)
+d1r_reg_dev_sbp <- dynlm(formula = scale(d(DEV)) ~ scale(d(SBP)) + scale(d(L(DEV))), data=zoo_p1)
+d1r_reg_rsa_sbp <- dynlm(formula = scale(d(RSA)) ~ scale(d(SBP)) + scale(d(L(RSA))), data=zoo_p1)
+d1r_reg_stress_sbp <- dynlm(formula = scale(d(STRESS)) ~ scale(d(SBP)) + scale(d(L(STRESS))), data=zoo_p1)
+
+summary(d1r_reg_total_sbp)
+summary(d1r_reg_exh_sbp)
+summary(d1r_reg_dev_sbp)
+summary(d1r_reg_rsa_sbp)
+summary(d1r_reg_stress_sbp)
+
+##dbp
+d1r_reg_total_dbp <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(DBP)) + scale(d(L(TOTAL))), data=zoo_p1)
+d1r_reg_exh_dbp <- dynlm(formula = scale(d(EXH)) ~ scale(d(DBP)) + scale(d(L(EXH))), data=zoo_p1)
+d1r_reg_dev_dbp <- dynlm(formula = scale(d(DEV)) ~ scale(d(DBP)) + scale(d(L(DEV))), data=zoo_p1)
+d1r_reg_rsa_dbp <- dynlm(formula = scale(d(RSA)) ~ scale(d(DBP)) + scale(d(L(RSA))), data=zoo_p1)
+d1r_reg_stress_dbp <- dynlm(formula = scale(d(STRESS)) ~ scale(d(DBP)) + scale(d(L(STRESS))), data=zoo_p1)
+
+summary(d1r_reg_total_dbp)
+summary(d1r_reg_exh_dbp)
+summary(d1r_reg_dev_dbp)
+summary(d1r_reg_rsa_dbp)
+summary(d1r_reg_stress_dbp)
+
+##HRV
+d1r_reg_total_hrv <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(HRV)) + scale(d(L(TOTAL))), data=zoo_p1)
+d1r_reg_exh_hrv <- dynlm(formula = scale(d(EXH)) ~ scale(d(HRV)) + scale(d(L(EXH))), data=zoo_p1)
+d1r_reg_dev_hrv <- dynlm(formula = scale(d(DEV)) ~ scale(d(HRV)) + scale(d(L(DEV))), data=zoo_p1)
+d1r_reg_rsa_hrv <- dynlm(formula = scale(d(RSA)) ~ scale(d(HRV)) + scale(d(L(RSA))), data=zoo_p1)
+d1r_reg_stress_hrv <- dynlm(formula = scale(d(STRESS)) ~ scale(d(HRV)) + scale(d(L(STRESS))), data=zoo_p1)
+
+summary(d1r_reg_total_hrv)
+summary(d1r_reg_exh_hrv)
+summary(d1r_reg_dev_hrv)
+summary(d1r_reg_rsa_hrv)
+summary(d1r_reg_stress_hrv)
+
+
+##Participant A2
+##cortisol
+d4r_reg_total_cor <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(cortisol_conc)) + scale(d(L(TOTAL))), data=zoo_p4)
+d4r_reg_exh_cor <- dynlm(formula = scale(d(EXH)) ~ scale(d(cortisol_conc)) + scale(d(L(EXH))), data=zoo_p4)
+d4r_reg_dev_cor <- dynlm(formula = scale(d(DEV)) ~ scale(d(cortisol_conc)) + scale(d(L(DEV))), data=zoo_p4)
+d4r_reg_rsa_cor <- dynlm(formula = scale(d(RSA)) ~ scale(d(cortisol_conc)) + scale(d(L(RSA))), data=zoo_p4)
+d4r_reg_stress_cor <- dynlm(formula = scale(d(STRESS)) ~ scale(d(cortisol_conc)) + scale(d(L(STRESS))), data=zoo_p4)
+
+summary(d4r_reg_total_cor)
+summary(d4r_reg_exh_cor)
+summary(d4r_reg_dev_cor)
+summary(d4r_reg_rsa_cor)
+summary(d4r_reg_stress_cor)
+
+##testosterone
+d4r_reg_total_test <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(testosterone_conc)) + scale(d(L(TOTAL))), data=zoo_p4)
+d4r_reg_exh_test <- dynlm(formula = scale(d(EXH)) ~ scale(d(testosterone_conc)) + scale(d(L(EXH))), data=zoo_p4)
+d4r_reg_dev_test <- dynlm(formula = scale(d(DEV)) ~ scale(d(testosterone_conc)) + scale(d(L(DEV))), data=zoo_p4)
+d4r_reg_rsa_test <- dynlm(formula = scale(d(RSA)) ~ scale(d(testosterone_conc)) + scale(d(L(RSA))), data=zoo_p4)
+d4r_reg_stress_test <- dynlm(formula = scale(d(STRESS)) ~ scale(d(testosterone_conc)) + scale(d(L(STRESS))), data=zoo_p4)
+
+summary(d4r_reg_total_test)
+summary(d4r_reg_exh_test)
+summary(d4r_reg_dev_test)
+summary(d4r_reg_rsa_test)
+summary(d4r_reg_stress_test)
+
+##testosterone to cortisol
+d4r_reg_total_tc <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(testosterone_cortisol)) + scale(d(L(TOTAL))), data=zoo_p4)
+d4r_reg_exh_tc <- dynlm(formula = scale(d(EXH)) ~ scale(d(testosterone_cortisol)) + scale(d(L(EXH))), data=zoo_p4)
+d4r_reg_dev_tc <- dynlm(formula = scale(d(DEV)) ~ scale(d(testosterone_cortisol)) + scale(d(L(DEV))), data=zoo_p4)
+d4r_reg_rsa_tc <- dynlm(formula = scale(d(RSA)) ~ scale(d(testosterone_cortisol)) + scale(d(L(RSA))), data=zoo_p4)
+d4r_reg_stress_tc <- dynlm(formula = scale(d(STRESS)) ~ scale(d(testosterone_cortisol)) + scale(d(L(STRESS))), data=zoo_p4)
+
+summary(d4r_reg_total_tc)
+summary(d4r_reg_exh_tc)
+summary(d4r_reg_dev_tc)
+summary(d4r_reg_rsa_tc)
+summary(d4r_reg_stress_tc)
+
+##CRP
+d4r_reg_total_crp <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(CRP_conc)) + scale(d(L(TOTAL))), data=zoo_p4)
+d4r_reg_exh_crp <- dynlm(formula = scale(d(EXH)) ~ scale(d(CRP_conc)) + scale(d(L(EXH))), data=zoo_p4)
+d4r_reg_dev_crp <- dynlm(formula = scale(d(DEV)) ~ scale(d(CRP_conc)) + scale(d(L(DEV))), data=zoo_p4)
+d4r_reg_rsa_crp <- dynlm(formula = scale(d(RSA)) ~ scale(d(CRP_conc)) + scale(d(L(RSA))), data=zoo_p4)
+d4r_reg_stress_crp <- dynlm(formula = scale(d(STRESS)) ~ scale(d(CRP_conc)) + scale(d(L(STRESS))), data=zoo_p4)
+
+summary(d4r_reg_total_crp)
+summary(d4r_reg_exh_crp)
+summary(d4r_reg_dev_crp)
+summary(d4r_reg_rsa_crp)
+summary(d4r_reg_stress_crp)
+
+##DHEAS
+d4r_reg_total_dheas <- dynlm(formula = d(TOTAL) ~ d(DHEAS_conc) + d(L(TOTAL)), data=zoo_p4)
+d4r_reg_exh_dheas <- dynlm(formula = d(EXH) ~ d(DHEAS_conc) + d(L(EXH)), data=zoo_p4)
+d4r_reg_dev_dheas <- dynlm(formula = d(DEV) ~ d(DHEAS_conc) + d(L(DEV)), data=zoo_p4)
+d4r_reg_rsa_dheas <- dynlm(formula = d(RSA) ~ d(DHEAS_conc) + d(L(RSA)), data=zoo_p4)
+d4r_reg_stress_dheas <- dynlm(formula = d(STRESS) ~ d(DHEAS_conc) + d(L(STRESS)), data=zoo_p4)
+
+d4r_reg_total_dheasf <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(DHEASxflow)) + scale(d(L(TOTAL))), data=zoo_p4)
+d4r_reg_exh_dheasf <- dynlm(formula = scale(d(EXH)) ~ scale(d(DHEASxflow)) + scale(d(L(EXH))), data=zoo_p4)
+d4r_reg_dev_dheasf <- dynlm(formula = scale(d(DEV)) ~ scale(d(DHEASxflow)) + scale(d(L(DEV))), data=zoo_p4)
+d4r_reg_rsa_dheasf <- dynlm(formula = scale(d(RSA)) ~ scale(d(DHEASxflow)) + scale(d(L(RSA))), data=zoo_p4)
+d4r_reg_stress_dheasf <- dynlm(formula = scale(d(STRESS)) ~ scale(d(DHEASxflow)) + scale(d(L(STRESS))), data=zoo_p4)
+
+d4r_reg_total_dheasp <- dynlm(formula = d(TOTAL) ~ d(DHEASxprotein) + d(L(TOTAL)), data=zoo_p4)
+d4r_reg_exh_dheasp <- dynlm(formula = d(EXH) ~ d(DHEASxprotein) + d(L(EXH)), data=zoo_p4)
+d4r_reg_dev_dheasp <- dynlm(formula = d(DEV) ~ d(DHEASxprotein) + d(L(DEV)), data=zoo_p4)
+d4r_reg_rsa_dheasp <- dynlm(formula = d(RSA) ~ d(DHEASxprotein) + d(L(RSA)), data=zoo_p4)
+d4r_reg_stress_dheasp <- dynlm(formula = d(STRESS) ~ d(DHEASxprotein) + d(L(STRESS)), data=zoo_p4)
+
+summary(d4r_reg_total_dheas)
+summary(d4r_reg_exh_dheas)
+summary(d4r_reg_dev_dheas)
+summary(d4r_reg_rsa_dheas)
+summary(d4r_reg_stress_dheas)
+
+summary(d4r_reg_total_dheasf)
+summary(d4r_reg_exh_dheasf)
+summary(d4r_reg_dev_dheasf)
+summary(d4r_reg_rsa_dheasf)
+summary(d4r_reg_stress_dheasf)
+
+summary(d4r_reg_total_dheasp)
+summary(d4r_reg_exh_dheasp)
+summary(d4r_reg_dev_dheasp)
+summary(d4r_reg_rsa_dheasp)
+summary(d4r_reg_stress_dheasp)
+
+##DHEA-s/Cortisol Ratio
+d4r_reg_total_dc <- dynlm(formula = d(TOTAL) ~ d(DHEAS_cortisol) + d(L(TOTAL)), data=zoo_p4)
+d4r_reg_exh_dc <- dynlm(formula = d(EXH) ~ d(DHEAS_cortisol) + d(L(EXH)), data=zoo_p4)
+d4r_reg_dev_dc <- dynlm(formula = d(DEV) ~ d(DHEAS_cortisol) + d(L(DEV)), data=zoo_p4)
+d4r_reg_rsa_dc <- dynlm(formula = d(RSA) ~ d(DHEAS_cortisol) + d(L(RSA)), data=zoo_p4)
+d4r_reg_stress_dc <- dynlm(formula = d(STRESS) ~ d(DHEAS_cortisol) + d(L(STRESS)), data=zoo_p4)
+
+summary(d4r_reg_total_dc)
+summary(d4r_reg_exh_dc)
+summary(d4r_reg_dev_dc)
+summary(d4r_reg_rsa_dc)
+summary(d4r_reg_stress_dc)
+
+##IgA
+d4r_reg_total_igaf <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(IgAxflow)) + scale(d(L(TOTAL))), data=zoo_p4)
+d4r_reg_exh_igaf <- dynlm(formula = scale(d(EXH)) ~ scale(d(IgAxflow)) + scale(d(L(EXH))), data=zoo_p4)
+d4r_reg_dev_igaf <- dynlm(formula = scale(d(DEV)) ~ scale(d(IgAxflow)) + scale(d(L(DEV))), data=zoo_p4)
+d4r_reg_rsa_igaf <- dynlm(formula = scale(d(RSA)) ~ scale(d(IgAxflow)) + scale(d(L(RSA))), data=zoo_p4)
+d4r_reg_stress_igaf <- dynlm(formula = scale(d(STRESS)) ~ scale(d(IgAxflow)) + scale(d(L(STRESS))), data=zoo_p4)
+
+summary(d4r_reg_total_igaf)
+summary(d4r_reg_exh_igaf)
+summary(d4r_reg_dev_igaf)
+summary(d4r_reg_rsa_igaf)
+summary(d4r_reg_stress_igaf)
+
+##sbp
+d4r_reg_total_sbp <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(SBP)) + scale(d(L(TOTAL))), data=zoo_p4)
+d4r_reg_exh_sbp <- dynlm(formula = scale(d(EXH)) ~ scale(d(SBP)) + scale(d(L(EXH))), data=zoo_p4)
+d4r_reg_dev_sbp <- dynlm(formula = scale(d(DEV)) ~ scale(d(SBP)) + scale(d(L(DEV))), data=zoo_p4)
+d4r_reg_rsa_sbp <- dynlm(formula = scale(d(RSA)) ~ scale(d(SBP)) + scale(d(L(RSA))), data=zoo_p4)
+d4r_reg_stress_sbp <- dynlm(formula = scale(d(STRESS)) ~ scale(d(SBP)) + scale(d(L(STRESS))), data=zoo_p4)
+
+summary(d4r_reg_total_sbp)
+summary(d4r_reg_exh_sbp)
+summary(d4r_reg_dev_sbp)
+summary(d4r_reg_rsa_sbp)
+summary(d4r_reg_stress_sbp)
+
+##dbp
+d4r_reg_total_dbp <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(DBP)) + scale(d(L(TOTAL))), data=zoo_p4)
+d4r_reg_exh_dbp <- dynlm(formula = scale(d(EXH)) ~ scale(d(DBP)) + scale(d(L(EXH))), data=zoo_p4)
+d4r_reg_dev_dbp <- dynlm(formula = scale(d(DEV)) ~ scale(d(DBP)) + scale(d(L(DEV))), data=zoo_p4)
+d4r_reg_rsa_dbp <- dynlm(formula = scale(d(RSA)) ~ scale(d(DBP)) + scale(d(L(RSA))), data=zoo_p4)
+d4r_reg_stress_dbp <- dynlm(formula = scale(d(STRESS)) ~ scale(d(DBP)) + scale(d(L(STRESS))), data=zoo_p4)
+
+summary(d4r_reg_total_dbp)
+summary(d4r_reg_exh_dbp)
+summary(d4r_reg_dev_dbp)
+summary(d4r_reg_rsa_dbp)
+summary(d4r_reg_stress_dbp)
+
+##HRV
+d4r_reg_total_hrv <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(HRV)) + scale(d(L(TOTAL))), data=zoo_p4)
+d4r_reg_exh_hrv <- dynlm(formula = scale(d(EXH)) ~ scale(d(HRV)) + scale(d(L(EXH))), data=zoo_p4)
+d4r_reg_dev_hrv <- dynlm(formula = scale(d(DEV)) ~ scale(d(HRV)) + scale(d(L(DEV))), data=zoo_p4)
+d4r_reg_rsa_hrv <- dynlm(formula = scale(d(RSA)) ~ scale(d(HRV)) + scale(d(L(RSA))), data=zoo_p4)
+d4r_reg_stress_hrv <- dynlm(formula = scale(d(STRESS)) ~ scale(d(HRV)) + scale(d(L(STRESS))), data=zoo_p4)
+
+summary(d4r_reg_total_hrv)
+summary(d4r_reg_exh_hrv)
+summary(d4r_reg_dev_hrv)
+summary(d4r_reg_rsa_hrv)
+summary(d4r_reg_stress_hrv)
+```
