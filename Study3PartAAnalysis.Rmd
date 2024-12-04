@@ -31,11 +31,8 @@ library(dynlm)
 The data files are separated into data with the questionnaire data (demographics, stress, burnout) and biomarker data. They are imported from two files and will be joined in a later code chunk.
 ```{r data import}
 q_dat <- read_excel("Biomed_QuestionnaireData1.xlsx")
-bio_dat <- read_excel("S2A_biomarkers.xlsx", 
-                      col_types = c("text", "numeric", "date", "numeric", "numeric", "numeric", "numeric", 
-                                    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
-                                    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", 
-                                    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"))
+bio_dat <- read_excel("S2A_biomarkers.xlsx")
+bio_dat$HRV <- as.numeric(bio_dat$HRV)
 # will receive a warning that some cells are turned NA due to coding numeric, this is correct since there are NAs in the data
 ```
 # Cleaning data
@@ -248,12 +245,22 @@ ggplot(dat2, aes(id, cortisol_conc))+
   labs(title="Distribution for Cortisol Levels")
 
 # Adjusting data to fit psychometrics and biomarkers on same scale
+# version to use for burnout
 cortisol_plot1 <- dat1 %>% 
   mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
-  mutate(cortisol_conc = cortisol_conc*10) # version to use for burnout
+  mutate(cortisol_conc = cortisol_conc*10) %>%
+  select(id, timepoint, cortisol_conc, EXHr, DEVr, RSAr, BURNr) %>%
+  rename(Cort = cortisol_conc, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr) %>%
+  pivot_longer(cols = c(Cort, EPE, DEV, RSA, BO), names_to = "Variable", values_to = "Level")
+cortisol_plot1$Variable <- factor(cortisol_plot1$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Cort"))
+#for stress
 cortisol_plot2 <- dat1 %>% 
   mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
-  mutate(cortisol_conc = cortisol_conc*50) # version to use for stress
+  mutate(cortisol_conc = cortisol_conc*50) %>%
+  select(id, timepoint, cortisol_conc, STRESS) %>%
+  rename(Cort = cortisol_conc, Stress = STRESS) %>%
+  pivot_longer(cols = c(Cort, Stress), names_to = "Variable", values_to = "Level")
+cortisol_plot2$Variable <- factor(cortisol_plot2$Variable, levels = c("Stress", "Cort"))
 
 # Development of cortisol concentrations over time
 ggplot(cortisol_plot1, aes(timepoint))+
@@ -304,6 +311,23 @@ ggplot(cortisol_plot1, aes(timepoint))+
     text = element_text(size = 20))+
   labs(title="Development of Cortisol Levels and Devaluation")
 
+ggplot(cortisol_plot1%>%filter(Variable %in% c("DEV", "Cort")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  #geom_line(aes(y = TOTAL), color = "blue")+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~./10, name = "Cortisol (ug/dL)"))+
+  scale_x_continuous(name = "Timepoint", limits = c(0,12.5))+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.98, .98),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14))
+
 ggplot(cortisol_plot1, aes(timepoint))+
   facet_grid(~id)+
   geom_line(aes(y=cortisol_conc), color = "red3")+
@@ -327,6 +351,23 @@ ggplot(cortisol_plot2, aes(timepoint))+
     axis.title.y.right = element_text(color = "red3"),
     text = element_text(size = 20))+
   labs(title="Development of Cortisol Levels and Stress")
+
+ggplot(cortisol_plot2%>%filter(Variable %in% c("Stress", "Cort")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  #geom_line(aes(y = TOTAL), color = "blue")+
+  scale_y_continuous(name = "Stress", limits = c(0,25), sec.axis = sec_axis(trans=~./50, name = "Cortisol (ug/dL)"))+
+  scale_x_continuous(name = "Timepoint", limits = c(0,12.5))+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.98, .98),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14))
 ```
 
 Plots: Testosterone
@@ -415,6 +456,22 @@ ggplot(testosterone_plot1a, aes(timepoint))+
     text = element_text(size = 20))+
   labs(title="Development of Testosterone Levels and \nDevaluation")
 
+ggplot(testosterone_plot1%>%filter(Variable %in% c("DEV", "Testo")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*70, name = "Testosterone (pg/mL)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.95, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14)) 
+
 ggplot(testosterone_plot1%>%filter(Variable %in% c("RSA", "Testo")), aes(timepoint, Level))+
   facet_grid(~id)+
   geom_line(aes(linetype = Variable))+
@@ -461,6 +518,13 @@ ggplot(dat2, aes(id, testosterone_cortisol))+
   labs(title="Distribution for Testosterone/Ratio")
 
 # Adjusting data to fit psychometrics and biomarkers on same scale
+tc_plot1 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(testosterone_cortisol = testosterone_cortisol/500) %>%
+  select(id, timepoint, testosterone_cortisol, EXHr, DEVr, RSAr, BURNr) %>%
+  rename(TC = testosterone_cortisol, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr) %>%
+  pivot_longer(cols = c(TC, EPE, DEV, RSA, BO), names_to = "Variable", values_to = "Level")
+tc_plot1$Variable <- factor(tc_plot1$Variable, levels = c("BO", "EPE", "DEV", "RSA", "TC"))
 tc_plot1 <- dat1 %>% 
   mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
   mutate(testosterone_cortisol = testosterone_cortisol/500) 
@@ -517,6 +581,22 @@ ggplot(tc_plot1, aes(timepoint))+
     text = element_text(size = 20))+
   labs(title="Development of Testosterone/Cortisol Ratio and \nDevaluation")
 
+ggplot(tc_plot1%>%filter(Variable %in% c("DEV", "TC")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*500, name = "Testosterone/Cortisol Ratio"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.95, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14))
+
 ggplot(tc_plot1, aes(timepoint))+
   facet_grid(~id)+
   geom_line(aes(y=testosterone_cortisol), color = "red3")+
@@ -557,6 +637,13 @@ ggplot(dat2, aes(id, CRP_conc))+
 crp_plot1 <- dat1 %>% 
   mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
   mutate(CRP_conc = CRP_conc/200)
+crp_plot1 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(CRP_conc = CRP_conc/200) %>%
+  select(id, timepoint, CRP_conc, EXHr, DEVr, RSAr, BURNr) %>%
+  rename(CRP = CRP_conc, EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr) %>%
+  pivot_longer(cols = c(CRP, EPE, DEV, RSA, BO), names_to = "Variable", values_to = "Level")
+crp_plot1$Variable <- factor(crp_plot1$Variable, levels = c("BO", "EPE", "DEV", "RSA", "CRP"))
 crp_plot2 <- dat1 %>% 
   mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
   mutate(CRP_conc = CRP_conc/30)
@@ -610,6 +697,22 @@ ggplot(crp_plot1, aes(timepoint))+
     axis.title.y.right = element_text(color = "red3"),
     text = element_text(size = 20))+
   labs(title="Development of C-reactive Protein and \nDevaluation")
+
+ggplot(crp_plot1%>%filter(Variable %in% c("DEV", "CRP")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*200, name = "C-reactive Protein (pg/mL)"))+
+  scale_x_continuous(name = "Timepoint")+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.95, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14))
 
 ggplot(crp_plot1, aes(timepoint))+
   facet_grid(~id)+
@@ -909,6 +1012,22 @@ ggplot(iga_plot1a, aes(timepoint))+
     text = element_text(size = 20))+
   labs(title="Development of sIgA Flow Rate and Total Burnout")
 
+ggplot(iga_plot1%>%filter(Variable %in% c("BO", "sIgA")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Total Burnout", limits = c(0,5), sec.axis = sec_axis(trans=~.*70, name = "sIgA Flow Rate (pg/min)"))+
+  scale_x_continuous(name = "Timepoint", limits = c(0,12.5))+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14))
+
 ggplot(iga_plot1a, aes(timepoint))+
   facet_grid(~id)+
   geom_line(aes(y=sIgA), color = "red3")+
@@ -924,7 +1043,7 @@ ggplot(iga_plot1a, aes(timepoint))+
 ggplot(iga_plot1%>%filter(Variable %in% c("DEV", "sIgA")), aes(timepoint, Level))+
   facet_grid(~id)+
   geom_line(aes(linetype = Variable))+
-  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*500, name = "sIgA Flow Rate (pg/min)"))+
+  scale_y_continuous(name = "Devaluation", limits = c(0,5), sec.axis = sec_axis(trans=~.*70, name = "sIgA Flow Rate (pg/min)"))+
   scale_x_continuous(name = "Timepoint", limits = c(0,12.5))+
   theme_bw()+
     theme(
@@ -948,6 +1067,22 @@ ggplot(iga_plot1a, aes(timepoint))+
     axis.title.y.right = element_text(color = "red3"),
     text = element_text(size = 20))+
   labs(title="Development of sIgA Flow Rate and Reduced \nSense of Accomplishment")
+
+ggplot(iga_plot1%>%filter(Variable %in% c("RSA", "sIgA")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Reduced Sense of Accomplishment", limits = c(0,5), sec.axis = sec_axis(trans=~.*70, name = "sIgA Flow Rate (pg/min)"))+
+  scale_x_continuous(name = "Timepoint", limits = c(0,12.5))+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14))
 
 ggplot(iga_plot2a, aes(timepoint))+
   facet_grid(~id)+
@@ -999,6 +1134,13 @@ bhplot2 <- dat1 %>%
   mutate(SBP = SBP/10,
          DBP = DBP/10,
          HRV = HRV/10)
+bh_plot2 <- dat1 %>% 
+  mutate(id = recode(id, "SA_P1" = "Participant A1", "SA_P4" = "Participant A2")) %>%
+  mutate(DBP = DBP/5)%>%
+  select(id, timepoint, DBP, EXHr, DEVr, RSAr, BURNr, STRESS) %>%
+  rename(EPE = EXHr, DEV = DEVr, RSA = RSAr, BO = BURNr, Stress = STRESS) %>%
+  pivot_longer(cols = c(DBP, EPE, DEV, RSA, BO, Stress), names_to = "Variable", values_to = "Level")
+bh_plot2$Variable <- factor(bh_plot2$Variable, levels = c("BO", "EPE", "DEV", "RSA", "Stress", "DBP"))
 
 # Development of SBP over time
 ggplot(bhplot1, aes(timepoint))+
@@ -1150,6 +1292,22 @@ ggplot(bhplot2, aes(timepoint))+
     text = element_text(size = 20))+
   labs(title="Development of DBP and Stress")
 
+ggplot(bh_plot2%>%filter(Variable %in% c("Stress", "DBP")), aes(timepoint, Level))+
+  facet_grid(~id)+
+  geom_line(aes(linetype = Variable))+
+  scale_y_continuous(name = "Stress", limits = c(0,25), sec.axis = sec_axis(trans=~.*10, name = "DBP (mmHg)"))+
+  scale_x_continuous(name = "Timepoint", limits = c(0,12.5))+
+  theme_bw()+
+    theme(
+    axis.title.y = element_text(color="grey1"),
+    axis.title.y.right = element_text(color = "grey2"),
+    text = element_text(size = 20, family = "serif"),
+    legend.position = c(.97, .97),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(6,6,6,6),
+    legend.text = element_text(size=14))
+
 
 # Development of HRV over time
 ggplot(bhplot1, aes(timepoint))+
@@ -1243,11 +1401,11 @@ dat_p1z <- bind_cols(datep1, scaledp1)
 zoo_p1 <- zoo(dat_p1[,-1], order.by = as.Date(dat_p1$date))
 
 ##cortisol
-d1_reg_total_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(TOTAL)) + scale(d(L(cortisol_conc))), data=zoo_p1)
-d1_reg_exh_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(EXH)) + scale(d(L(cortisol_conc))), data=zoo_p1)
-d1_reg_dev_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(DEV)) + scale(d(L(cortisol_conc))), data=zoo_p1)
-d1_reg_rsa_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(RSA)) + scale(d(L(cortisol_conc))), data=zoo_p1)
-d1_reg_stress_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(STRESS)) + scale(d(L(cortisol_conc))), data=zoo_p1)
+d1_reg_total_cor <- dynlm(formula = d(cortisol_conc) ~ d(L(TOTAL, 0:1)) + d(L(cortisol_conc)), data=zoo_p1)
+d1_reg_exh_cor <- dynlm(formula = d(cortisol_conc) ~ d(L(EXH, 0:1)) + d(L(cortisol_conc)), data=zoo_p1)
+d1_reg_dev_cor <- dynlm(formula = d(cortisol_conc) ~ d(L(DEV, 0:1)) + d(L(cortisol_conc)), data=zoo_p1)
+d1_reg_rsa_cor <- dynlm(formula = d(cortisol_conc) ~ d(L(RSA, 0:1)) + d(L(cortisol_conc)), data=zoo_p1)
+d1_reg_stress_cor <- dynlm(formula = d(cortisol_conc) ~ d(L(STRESS, 0:1)) + d(L(cortisol_conc)), data=zoo_p1)
 
 summary(d1_reg_total_cor)
 summary(d1_reg_exh_cor)
@@ -1256,11 +1414,11 @@ summary(d1_reg_rsa_cor)
 summary(d1_reg_stress_cor)
 
 ##testosterone
-d1_reg_total_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(TOTAL)) + scale(d(L(testosterone_conc))), data=zoo_p1)
-d1_reg_exh_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(EXH)) + scale(d(L(testosterone_conc))), data=zoo_p1)
-d1_reg_dev_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(DEV)) + scale(d(L(testosterone_conc))), data=zoo_p1)
-d1_reg_rsa_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(RSA)) + scale(d(L(testosterone_conc))), data=zoo_p1)
-d1_reg_stress_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(STRESS)) + scale(d(L(testosterone_conc))), data=zoo_p1)
+d1_reg_total_test <- dynlm(formula = d(testosterone_conc) ~ d(L(TOTAL, 0:1)) + d(L(testosterone_conc)), data=zoo_p1)
+d1_reg_exh_test <- dynlm(formula = d(testosterone_conc) ~ d(L(EXH, 0:1)) + d(L(testosterone_conc)), data=zoo_p1)
+d1_reg_dev_test <- dynlm(formula = d(testosterone_conc) ~ d(L(DEV, 0:1)) + d(L(testosterone_conc)), data=zoo_p1)
+d1_reg_rsa_test <- dynlm(formula = d(testosterone_conc) ~ d(L(RSA, 0:1)) + d(L(testosterone_conc)), data=zoo_p1)
+d1_reg_stress_test <- dynlm(formula = d(testosterone_conc) ~ d(L(STRESS, 0:1)) + d(L(testosterone_conc)), data=zoo_p1)
 
 summary(d1_reg_total_test)
 summary(d1_reg_exh_test)
@@ -1269,11 +1427,11 @@ summary(d1_reg_rsa_test)
 summary(d1_reg_stress_test)
 
 ##testosterone to cortisol
-d1_reg_total_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(TOTAL)) + scale(d(L(testosterone_cortisol))), data=zoo_p1)
-d1_reg_exh_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(EXH)) + scale(d(L(testosterone_cortisol))), data=zoo_p1)
-d1_reg_dev_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(DEV)) + scale(d(L(testosterone_cortisol))), data=zoo_p1)
-d1_reg_rsa_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(RSA)) + scale(d(L(testosterone_cortisol))), data=zoo_p1)
-d1_reg_stress_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(STRESS)) + scale(d(L(testosterone_cortisol))), data=zoo_p1)
+d1_reg_total_tc <- dynlm(formula = d(testosterone_cortisol) ~ d(L(TOTAL, 0:1)) + d(L(testosterone_cortisol)), data=zoo_p1)
+d1_reg_exh_tc <- dynlm(formula = d(testosterone_cortisol) ~ d(L(EXH, 0:1)) + d(L(testosterone_cortisol)), data=zoo_p1)
+d1_reg_dev_tc <- dynlm(formula = d(testosterone_cortisol) ~ d(L(DEV, 0:1)) + d(L(testosterone_cortisol)), data=zoo_p1)
+d1_reg_rsa_tc <- dynlm(formula = d(testosterone_cortisol) ~ d(L(RSA, 0:1)) + d(L(testosterone_cortisol)), data=zoo_p1)
+d1_reg_stress_tc <- dynlm(formula = d(testosterone_cortisol) ~ d(L(STRESS, 0:1)) + d(L(testosterone_cortisol)), data=zoo_p1)
 
 summary(d1_reg_total_tc)
 summary(d1_reg_exh_tc)
@@ -1282,11 +1440,11 @@ summary(d1_reg_rsa_tc)
 summary(d1_reg_stress_tc)
 
 ##CRP
-d1_reg_total_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(TOTAL)) + scale(d(L(CRP_conc))), data=zoo_p1)
-d1_reg_exh_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(EXH)) + scale(d(L(CRP_conc))), data=zoo_p1)
-d1_reg_dev_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(DEV)) + scale(d(L(CRP_conc))), data=zoo_p1)
-d1_reg_rsa_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(RSA)) + scale(d(L(CRP_conc))), data=zoo_p1)
-d1_reg_stress_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(STRESS)) + scale(d(L(CRP_conc))), data=zoo_p1)
+d1_reg_total_crp <- dynlm(formula = d(CRP_conc) ~ d(L(TOTAL, 0:1)) + d(L(CRP_conc)), data=zoo_p1)
+d1_reg_exh_crp <- dynlm(formula = d(CRP_conc) ~ d(L(EXH, 0:1)) + d(L(CRP_conc)), data=zoo_p1)
+d1_reg_dev_crp <- dynlm(formula = d(CRP_conc) ~ d(L(DEV, 0:1)) + d(L(CRP_conc)), data=zoo_p1)
+d1_reg_rsa_crp <- dynlm(formula = d(CRP_conc) ~ d(L(RSA, 0:1)) + d(L(CRP_conc)), data=zoo_p1)
+d1_reg_stress_crp <- dynlm(formula = d(CRP_conc) ~ d(L(STRESS, 0:1)) + d(L(CRP_conc)), data=zoo_p1)
 
 summary(d1_reg_total_crp)
 summary(d1_reg_exh_crp)
@@ -1295,11 +1453,12 @@ summary(d1_reg_rsa_crp)
 summary(d1_reg_stress_crp)
 
 ##DHEAS
-d1_reg_total_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(TOTAL)) + scale(d(L(DHEASxflow))), data=zoo_p1)
-d1_reg_exh_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(EXH)) + scale(d(L(DHEASxflow))), data=zoo_p1)
-d1_reg_dev_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(DEV)) + scale(d(L(DHEASxflow))), data=zoo_p1)
-d1_reg_rsa_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(RSA)) + scale(d(L(DHEASxflow))), data=zoo_p1)
-d1_reg_stress_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(STRESS)) + scale(d(L(DHEASxflow))), data=zoo_p1)
+d1_reg_total_dheasf <- dynlm(formula = d(DHEASxflow) ~ d(L(TOTAL, 0:1)) + d(L(DHEASxflow)), data=zoo_p1)
+d1_reg_exh_dheasf <- dynlm(formula = d(DHEASxflow) ~ d(L(EXH, 0:1)) + d(L(DHEASxflow)), data=zoo_p1)
+d1_reg_dev_dheasf <- dynlm(formula = d(DHEASxflow) ~ d(L(DEV, 0)) + d(L(DHEASxflow)), data=zoo_p1)
+d1_reg_dev_dheasf <- dynlm(formula = d(DHEASxflow) ~ d(L(DEV, 0:1)) + d(L(DHEASxflow)), data=zoo_p1)
+d1_reg_rsa_dheasf <- dynlm(formula = d(DHEASxflow) ~ d(L(RSA, 0:1)) + d(L(DHEASxflow)), data=zoo_p1)
+d1_reg_stress_dheasf <- dynlm(formula = d(DHEASxflow) ~ d(L(STRESS, 0:1)) + d(L(DHEASxflow)), data=zoo_p1)
 
 summary(d1_reg_total_dheasf)
 summary(d1_reg_exh_dheasf)
@@ -1308,11 +1467,11 @@ summary(d1_reg_rsa_dheasf)
 summary(d1_reg_stress_dheasf)
 
 ##IgA
-d1_reg_total_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(TOTAL)) + scale(d(L(IgAxflow))), data=zoo_p1)
-d1_reg_exh_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(EXH)) + scale(d(L(IgAxflow))), data=zoo_p1)
-d1_reg_dev_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(DEV)) + scale(d(L(IgAxflow))), data=zoo_p1)
-d1_reg_rsa_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(RSA)) + scale(d(L(IgAxflow))), data=zoo_p1)
-d1_reg_stress_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(STRESS)) + scale(d(L(IgAxflow))), data=zoo_p1)
+d1_reg_total_igaf <- dynlm(formula = d(IgAxflow) ~ d(L(TOTAL, 0:1)) + d(L(IgAxflow)), data=zoo_p1)
+d1_reg_exh_igaf <- dynlm(formula = d(IgAxflow) ~ d(L(EXH, 0:1)) + d(L(IgAxflow)), data=zoo_p1)
+d1_reg_dev_igaf <- dynlm(formula = d(IgAxflow) ~ d(L(DEV, 0:1)) + d(L(IgAxflow)), data=zoo_p1)
+d1_reg_rsa_igaf <- dynlm(formula = d(IgAxflow) ~ d(L(RSA, 0:1)) + d(L(IgAxflow)), data=zoo_p1)
+d1_reg_stress_igaf <- dynlm(formula = d(IgAxflow) ~ d(L(STRESS, 0:1)) + d(L(IgAxflow)), data=zoo_p1)
 
 summary(d1_reg_total_igaf)
 summary(d1_reg_exh_igaf)
@@ -1321,11 +1480,11 @@ summary(d1_reg_rsa_igaf)
 summary(d1_reg_stress_igaf)
 
 ##sbp
-d1_reg_total_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(TOTAL)) + scale(d(L(SBP))), data=zoo_p1)
-d1_reg_exh_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(EXH)) + scale(d(L(SBP))), data=zoo_p1)
-d1_reg_dev_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(DEV)) + scale(d(L(SBP))), data=zoo_p1)
-d1_reg_rsa_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(RSA)) + scale(d(L(SBP))), data=zoo_p1)
-d1_reg_stress_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(STRESS)) + scale(d(L(SBP))), data=zoo_p1)
+d1_reg_total_sbp <- dynlm(formula = d(SBP) ~ d(L(TOTAL, 0:1)) + d(L(SBP)), data=zoo_p1)
+d1_reg_exh_sbp <- dynlm(formula = d(SBP) ~ d(L(EXH, 0:1)) + d(L(SBP)), data=zoo_p1)
+d1_reg_dev_sbp <- dynlm(formula = d(SBP) ~ d(L(DEV, 0:1)) + d(L(SBP)), data=zoo_p1)
+d1_reg_rsa_sbp <- dynlm(formula = d(SBP) ~ d(L(RSA, 0:1)) + d(L(SBP)), data=zoo_p1)
+d1_reg_stress_sbp <- dynlm(formula = d(SBP) ~ d(L(STRESS, 0:1)) + d(L(SBP)), data=zoo_p1)
 
 summary(d1_reg_total_sbp)
 summary(d1_reg_exh_sbp)
@@ -1334,11 +1493,11 @@ summary(d1_reg_rsa_sbp)
 summary(d1_reg_stress_sbp)
 
 ##dbp
-d1_reg_total_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(TOTAL)) + scale(d(L(DBP))), data=zoo_p1)
-d1_reg_exh_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(EXH)) + scale(d(L(DBP))), data=zoo_p1)
-d1_reg_dev_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(DEV)) + scale(d(L(DBP))), data=zoo_p1)
-d1_reg_rsa_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(RSA)) + scale(d(L(DBP))), data=zoo_p1)
-d1_reg_stress_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(STRESS)) + scale(d(L(DBP))), data=zoo_p1)
+d1_reg_total_dbp <- dynlm(formula = d(DBP) ~ d(L(TOTAL, 0:1)) + d(L(DBP)), data=zoo_p1)
+d1_reg_exh_dbp <- dynlm(formula = d(DBP) ~ d(L(EXH, 0:1)) + d(L(DBP)), data=zoo_p1)
+d1_reg_dev_dbp <- dynlm(formula = d(DBP) ~ d(L(DEV, 0:1)) + d(L(DBP)), data=zoo_p1)
+d1_reg_rsa_dbp <- dynlm(formula = d(DBP) ~ d(L(RSA, 0:1)) + d(L(DBP)), data=zoo_p1)
+d1_reg_stress_dbp <- dynlm(formula = d(DBP) ~ d(L(STRESS, 0:1)) + scale(d(L(DBP))), data=zoo_p1)
 
 summary(d1_reg_total_dbp)
 summary(d1_reg_exh_dbp)
@@ -1347,11 +1506,11 @@ summary(d1_reg_rsa_dbp)
 summary(d1_reg_stress_dbp)
 
 ##HRV
-d1_reg_total_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(TOTAL)) + scale(d(L(HRV))), data=zoo_p1)
-d1_reg_exh_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(EXH)) + scale(d(L(HRV))), data=zoo_p1)
-d1_reg_dev_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(DEV)) + scale(d(L(HRV))), data=zoo_p1)
-d1_reg_rsa_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(RSA)) + scale(d(L(HRV))), data=zoo_p1)
-d1_reg_stress_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(STRESS)) + scale(d(L(HRV))), data=zoo_p1)
+d1_reg_total_hrv <- dynlm(formula = d(HRV) ~ d(L(TOTAL, 0:1)) + d(L(HRV)), data=zoo_p1)
+d1_reg_exh_hrv <- dynlm(formula = d(HRV) ~ d(L(EXH, 0:1)) + d(L(HRV)), data=zoo_p1)
+d1_reg_dev_hrv <- dynlm(formula = d(HRV) ~ d(L(DEV, 0:1)) + d(L(HRV)), data=zoo_p1)
+d1_reg_rsa_hrv <- dynlm(formula = d(HRV) ~ d(L(RSA, 0:1)) + d(L(HRV)), data=zoo_p1)
+d1_reg_stress_hrv <- dynlm(formula = d(HRV) ~ d(L(STRESS, 0:1)) + d(L(HRV)), data=zoo_p1)
 
 summary(d1_reg_total_hrv)
 summary(d1_reg_exh_hrv)
@@ -1375,11 +1534,11 @@ dat_p4z <- bind_cols(datep4, scaledp4)
 zoo_p4 <- zoo(dat_p4[,-1], order.by = as.Date(dat_p4$date))
 
 ##cortisol
-d4_reg_total_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(TOTAL)) + scale(d(L(cortisol_conc))), data=zoo_p4)
-d4_reg_exh_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(EXH)) + scale(d(L(cortisol_conc))), data=zoo_p4)
-d4_reg_dev_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(DEV)) + scale(d(L(cortisol_conc))), data=zoo_p4)
-d4_reg_rsa_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(RSA)) + scale(d(L(cortisol_conc))), data=zoo_p4)
-d4_reg_stress_cor <- dynlm(formula = scale(d(cortisol_conc)) ~ scale(d(STRESS)) + scale(d(L(cortisol_conc))), data=zoo_p4)
+d4_reg_total_cor <- dynlm(formula = d(cortisol_conc) ~ d(L(TOTAL, 0:1)) + d(L(cortisol_conc)), data=zoo_p4)
+d4_reg_exh_cor <- dynlm(formula = d(cortisol_conc) ~ d(L(EXH, 0:1)) + d(L(cortisol_conc)), data=zoo_p4)
+d4_reg_dev_cor <- dynlm(formula = d(cortisol_conc) ~ d(L(DEV, 0:1)) + d(L(cortisol_conc)), data=zoo_p4)
+d4_reg_rsa_cor <- dynlm(formula = d(cortisol_conc) ~ d(L(RSA, 0:1)) + d(L(cortisol_conc)), data=zoo_p4)
+d4_reg_stress_cor <- dynlm(formula = d(cortisol_conc) ~ d(L(STRESS, 0:1)) + d(L(cortisol_conc)), data=zoo_p4)
 
 summary(d4_reg_total_cor)
 summary(d4_reg_exh_cor)
@@ -1388,11 +1547,11 @@ summary(d4_reg_rsa_cor)
 summary(d4_reg_stress_cor)
 
 ##testosterone
-d4_reg_total_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(TOTAL)) + scale(d(L(testosterone_conc))), data=zoo_p4)
-d4_reg_exh_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(EXH)) + scale(d(L(testosterone_conc))), data=zoo_p4)
-d4_reg_dev_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(DEV)) + scale(d(L(testosterone_conc))), data=zoo_p4)
-d4_reg_rsa_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(RSA)) + scale(d(L(testosterone_conc))), data=zoo_p4)
-d4_reg_stress_test <- dynlm(formula = scale(d(testosterone_conc)) ~ scale(d(STRESS)) + scale(d(L(testosterone_conc))), data=zoo_p4)
+d4_reg_total_test <- dynlm(formula = d(testosterone_conc) ~ d(L(TOTAL, 0:1)) + d(L(testosterone_conc)), data=zoo_p4)
+d4_reg_exh_test <- dynlm(formula = d(testosterone_conc) ~ d(L(EXH, 0:1)) + d(L(testosterone_conc)), data=zoo_p4)
+d4_reg_dev_test <- dynlm(formula = d(testosterone_conc) ~ d(L(DEV, 0:1)) + d(L(testosterone_conc)), data=zoo_p4)
+d4_reg_rsa_test <- dynlm(formula = d(testosterone_conc) ~ d(L(RSA, 0:1)) + d(L(testosterone_conc)), data=zoo_p4)
+d4_reg_stress_test <- dynlm(formula = d(testosterone_conc) ~ d(L(STRESS, 0:1)) + d(L(testosterone_conc)), data=zoo_p4)
 
 summary(d4_reg_total_test)
 summary(d4_reg_exh_test)
@@ -1401,11 +1560,11 @@ summary(d4_reg_rsa_test)
 summary(d4_reg_stress_test)
 
 ##testosterone to cortisol
-d4_reg_total_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(TOTAL)) + scale(d(L(testosterone_cortisol))), data=zoo_p4)
-d4_reg_exh_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(EXH)) + scale(d(L(testosterone_cortisol))), data=zoo_p4)
-d4_reg_dev_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(DEV)) + scale(d(L(testosterone_cortisol))), data=zoo_p4)
-d4_reg_rsa_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(RSA)) + scale(d(L(testosterone_cortisol))), data=zoo_p4)
-d4_reg_stress_tc <- dynlm(formula = scale(d(testosterone_cortisol)) ~ scale(d(STRESS)) + scale(d(L(testosterone_cortisol))), data=zoo_p4)
+d4_reg_total_tc <- dynlm(formula = d(testosterone_cortisol) ~ d(L(TOTAL, 0:1)) + d(L(testosterone_cortisol)), data=zoo_p4)
+d4_reg_exh_tc <- dynlm(formula = d(testosterone_cortisol) ~ d(L(EXH, 0:1)) + d(L(testosterone_cortisol)), data=zoo_p4)
+d4_reg_dev_tc <- dynlm(formula = d(testosterone_cortisol) ~ d(L(DEV, 0:1)) + d(L(testosterone_cortisol)), data=zoo_p4)
+d4_reg_rsa_tc <- dynlm(formula = d(testosterone_cortisol) ~ d(L(RSA, 0:1)) + d(L(testosterone_cortisol)), data=zoo_p4)
+d4_reg_stress_tc <- dynlm(formula = d(testosterone_cortisol) ~ d(L(STRESS, 0:1)) + d(L(testosterone_cortisol)), data=zoo_p4)
 
 summary(d4_reg_total_tc)
 summary(d4_reg_exh_tc)
@@ -1414,11 +1573,11 @@ summary(d4_reg_rsa_tc)
 summary(d4_reg_stress_tc)
 
 ##CRP
-d4_reg_total_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(TOTAL)) + scale(d(L(CRP_conc))), data=zoo_p4)
-d4_reg_exh_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(EXH)) + scale(d(L(CRP_conc))), data=zoo_p4)
-d4_reg_dev_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(DEV)) + scale(d(L(CRP_conc))), data=zoo_p4)
-d4_reg_rsa_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(RSA)) + scale(d(L(CRP_conc))), data=zoo_p4)
-d4_reg_stress_crp <- dynlm(formula = scale(d(CRP_conc)) ~ scale(d(STRESS)) + scale(d(L(CRP_conc))), data=zoo_p4)
+d4_reg_total_crp <- dynlm(formula = d(CRP_conc) ~ d(L(TOTAL, 0:1)) + d(L(CRP_conc)), data=zoo_p4)
+d4_reg_exh_crp <- dynlm(formula = d(CRP_conc) ~ d(L(EXH, 0:1)) + d(L(CRP_conc)), data=zoo_p4)
+d4_reg_dev_crp <- dynlm(formula = d(CRP_conc) ~ d(L(DEV, 0:1)) + d(L(CRP_conc)), data=zoo_p4)
+d4_reg_rsa_crp <- dynlm(formula = d(CRP_conc) ~ d(L(RSA, 0:1)) + d(L(CRP_conc)), data=zoo_p4)
+d4_reg_stress_crp <- dynlm(formula = d(CRP_conc) ~ d(L(STRESS, 0:1)) + d(L(CRP_conc)), data=zoo_p4)
 
 summary(d4_reg_total_crp)
 summary(d4_reg_exh_crp)
@@ -1427,11 +1586,11 @@ summary(d4_reg_rsa_crp)
 summary(d4_reg_stress_crp)
 
 ##DHEAS
-d4_reg_total_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(TOTAL)) + scale(d(L(DHEASxflow))), data=zoo_p4)
-d4_reg_exh_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(EXH)) + scale(d(L(DHEASxflow))), data=zoo_p4)
-d4_reg_dev_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(DEV)) + scale(d(L(DHEASxflow))), data=zoo_p4)
-d4_reg_rsa_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(RSA)) + scale(d(L(DHEASxflow))), data=zoo_p4)
-d4_reg_stress_dheasf <- dynlm(formula = scale(d(DHEASxflow)) ~ scale(d(STRESS)) + scale(d(L(DHEASxflow))), data=zoo_p4)
+d4_reg_total_dheasf <- dynlm(formula = d(DHEASxflow) ~ d(L(TOTAL, 0:1)) + d(L(DHEASxflow)), data=zoo_p4)
+d4_reg_exh_dheasf <- dynlm(formula = d(DHEASxflow) ~ d(L(EXH, 0:1)) + d(L(DHEASxflow)), data=zoo_p4)
+d4_reg_dev_dheasf <- dynlm(formula = d(DHEASxflow) ~ d(L(DEV, 0:1)) + d(L(DHEASxflow)), data=zoo_p4)
+d4_reg_rsa_dheasf <- dynlm(formula = d(DHEASxflow) ~ d(L(RSA, 0:1)) + d(L(DHEASxflow)), data=zoo_p4)
+d4_reg_stress_dheasf <- dynlm(formula = d(DHEASxflow) ~ d(L(STRESS, 0:1)) + d(L(DHEASxflow)), data=zoo_p4)
 
 summary(d4_reg_total_dheasf)
 summary(d4_reg_exh_dheasf)
@@ -1453,11 +1612,11 @@ summary(d4_reg_rsa_dc)
 summary(d4_reg_stress_dc)
 
 ##IgA
-d4_reg_total_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(TOTAL)) + scale(d(L(IgAxflow))), data=zoo_p4)
-d4_reg_exh_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(EXH)) + scale(d(L(IgAxflow))), data=zoo_p4)
-d4_reg_dev_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(DEV)) + scale(d(L(IgAxflow))), data=zoo_p4)
-d4_reg_rsa_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(RSA)) + scale(d(L(IgAxflow))), data=zoo_p4)
-d4_reg_stress_igaf <- dynlm(formula = scale(d(IgAxflow)) ~ scale(d(STRESS)) + scale(d(L(IgAxflow))), data=zoo_p4)
+d4_reg_total_igaf <- dynlm(formula = d(IgAxflow) ~ d(L(TOTAL, 0:1)) + d(L(IgAxflow)), data=zoo_p4)
+d4_reg_exh_igaf <- dynlm(formula = d(IgAxflow) ~ d(L(EXH, 0:1)) + d(L(IgAxflow)), data=zoo_p4)
+d4_reg_dev_igaf <- dynlm(formula = d(IgAxflow) ~ d(L(DEV, 0:1)) + d(L(IgAxflow)), data=zoo_p4)
+d4_reg_rsa_igaf <- dynlm(formula = d(IgAxflow) ~ d(L(RSA, 0:1)) + d(L(IgAxflow)), data=zoo_p4)
+d4_reg_stress_igaf <- dynlm(formula = d(IgAxflow) ~ d(L(STRESS, 0:1)) + d(L(IgAxflow)), data=zoo_p4)
 
 summary(d4_reg_total_igaf)
 summary(d4_reg_exh_igaf)
@@ -1466,11 +1625,11 @@ summary(d4_reg_rsa_igaf)
 summary(d4_reg_stress_igaf)
 
 ##sbp
-d4_reg_total_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(TOTAL)) + scale(d(L(SBP))), data=zoo_p4)
-d4_reg_exh_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(EXH)) + scale(d(L(SBP))), data=zoo_p4)
-d4_reg_dev_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(DEV)) + scale(d(L(SBP))), data=zoo_p4)
-d4_reg_rsa_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(RSA)) + scale(d(L(SBP))), data=zoo_p4)
-d4_reg_stress_sbp <- dynlm(formula = scale(d(SBP)) ~ scale(d(STRESS)) + scale(d(L(SBP))), data=zoo_p4)
+d4_reg_total_sbp <- dynlm(formula = d(SBP) ~ d(L(TOTAL, 0:1)) + d(L(SBP)), data=zoo_p4)
+d4_reg_exh_sbp <- dynlm(formula = d(SBP) ~ d(L(EXH, 0:1)) + d(L(SBP)), data=zoo_p4)
+d4_reg_dev_sbp <- dynlm(formula = d(SBP) ~ d(L(DEV, 0:1)) + d(L(SBP)), data=zoo_p4)
+d4_reg_rsa_sbp <- dynlm(formula = d(SBP) ~ d(L(RSA, 0:1)) + d(L(SBP)), data=zoo_p4)
+d4_reg_stress_sbp <- dynlm(formula = d(SBP) ~ d(L(STRESS, 0:1)) + d(L(SBP)), data=zoo_p4)
 
 summary(d4_reg_total_sbp)
 summary(d4_reg_exh_sbp)
@@ -1479,11 +1638,11 @@ summary(d4_reg_rsa_sbp)
 summary(d4_reg_stress_sbp)
 
 ##dbp
-d4_reg_total_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(TOTAL)) + scale(d(L(DBP))), data=zoo_p4)
-d4_reg_exh_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(EXH)) + scale(d(L(DBP))), data=zoo_p4)
-d4_reg_dev_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(DEV)) + scale(d(L(DBP))), data=zoo_p4)
-d4_reg_rsa_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(RSA)) + scale(d(L(DBP))), data=zoo_p4)
-d4_reg_stress_dbp <- dynlm(formula = scale(d(DBP)) ~ scale(d(STRESS)) + scale(d(L(DBP))), data=zoo_p4)
+d4_reg_total_dbp <- dynlm(formula = d(DBP) ~ d(L(TOTAL, 0:1)) + d(L(DBP)), data=zoo_p4)
+d4_reg_exh_dbp <- dynlm(formula = d(DBP) ~ d(L(EXH, 0:1)) + d(L(DBP)), data=zoo_p4)
+d4_reg_dev_dbp <- dynlm(formula = d(DBP) ~ d(L(DEV, 0:1)) + d(L(DBP)), data=zoo_p4)
+d4_reg_rsa_dbp <- dynlm(formula = d(DBP) ~ d(L(RSA, 0:1)) + d(L(DBP)), data=zoo_p4)
+d4_reg_stress_dbp <- dynlm(formula = d(DBP) ~ d(L(STRESS, 0:1)) + d(L(DBP)), data=zoo_p4)
 
 summary(d4_reg_total_dbp)
 summary(d4_reg_exh_dbp)
@@ -1492,11 +1651,11 @@ summary(d4_reg_rsa_dbp)
 summary(d4_reg_stress_dbp)
 
 ##HRV
-d4_reg_total_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(TOTAL)) + scale(d(L(HRV))), data=zoo_p4)
-d4_reg_exh_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(EXH)) + scale(d(L(HRV))), data=zoo_p4)
-d4_reg_dev_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(DEV)) + scale(d(L(HRV))), data=zoo_p4)
-d4_reg_rsa_hrv <- dynlm(formula = scale(d(HRV)) ~ scale(d(RSA)) + scale(d(L(HRV))), data=zoo_p4)
-d4_reg_stress_hrv <- dynlm(formula = d(HRV) ~ d(STRESS) + d(L(HRV)), data=zoo_p4)
+d4_reg_total_hrv <- dynlm(formula = d(HRV) ~ d(L(TOTAL, 0:1)) + d(L(HRV)), data=zoo_p4)
+d4_reg_exh_hrv <- dynlm(formula = d(HRV) ~ d(L(EXH, 0:1)) + d(L(HRV)), data=zoo_p4)
+d4_reg_dev_hrv <- dynlm(formula = d(HRV) ~ d(L(DEV, 0:1)) + d(L(HRV)), data=zoo_p4)
+d4_reg_rsa_hrv <- dynlm(formula = d(HRV) ~ d(L(RSA, 0:1)) + d(L(HRV)), data=zoo_p4)
+d4_reg_stress_hrv <- dynlm(formula = d(HRV) ~ d(L(STRESS, 0:1)) + d(L(HRV)), data=zoo_p4)
 
 summary(d4_reg_total_hrv)
 summary(d4_reg_exh_hrv)
@@ -1509,11 +1668,11 @@ summary(d4_reg_stress_hrv)
 Models for participant A1 are carried out first, then models for participant A2. 
 ```{r dr models biomarker to psych}
 ##cortisol
-d1r_reg_total_cor <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(cortisol_conc)) + scale(d(L(TOTAL))), data=zoo_p1)
-d1r_reg_exh_cor <- dynlm(formula = scale(d(EXH)) ~ scale(d(cortisol_conc)) + scale(d(L(EXH))), data=zoo_p1)
-d1r_reg_dev_cor <- dynlm(formula = scale(d(DEV)) ~ scale(d(cortisol_conc)) + scale(d(L(DEV))), data=zoo_p1)
-d1r_reg_rsa_cor <- dynlm(formula = scale(d(RSA)) ~ scale(d(cortisol_conc)) + scale(d(L(RSA))), data=zoo_p1)
-d1r_reg_stress_cor <- dynlm(formula = scale(d(STRESS)) ~ scale(d(cortisol_conc)) + scale(d(L(STRESS))), data=zoo_p1)
+d1r_reg_total_cor <- dynlm(formula = d(TOTAL) ~ d(L(cortisol_conc, 0:1)) + d(L(TOTAL)), data=zoo_p1)
+d1r_reg_exh_cor <- dynlm(formula = d(EXH) ~ d(L(cortisol_conc, 0:1)) + d(L(EXH)), data=zoo_p1)
+d1r_reg_dev_cor <- dynlm(formula = d(DEV) ~ d(L(cortisol_conc, 0:1)) + d(L(DEV)), data=zoo_p1)
+d1r_reg_rsa_cor <- dynlm(formula = d(RSA) ~ d(L(cortisol_conc, 0:1)) + d(L(RSA)), data=zoo_p1)
+d1r_reg_stress_cor <- dynlm(formula = d(STRESS) ~ d(L(cortisol_conc, 0:1)) + d(L(STRESS)), data=zoo_p1)
 
 summary(d1r_reg_total_cor)
 summary(d1r_reg_exh_cor)
@@ -1522,11 +1681,11 @@ summary(d1r_reg_rsa_cor)
 summary(d1r_reg_stress_cor)
 
 ##testosterone
-d1r_reg_total_test <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(testosterone_conc)) + scale(d(L(TOTAL))), data=zoo_p1)
-d1r_reg_exh_test <- dynlm(formula = scale(d(EXH)) ~ scale(d(testosterone_conc)) + scale(d(L(EXH))), data=zoo_p1)
-d1r_reg_dev_test <- dynlm(formula = scale(d(DEV)) ~ scale(d(testosterone_conc)) + scale(d(L(DEV))), data=zoo_p1)
-d1r_reg_rsa_test <- dynlm(formula = scale(d(RSA)) ~ scale(d(testosterone_conc)) + scale(d(L(RSA))), data=zoo_p1)
-d1r_reg_stress_test <- dynlm(formula = scale(d(STRESS)) ~ scale(d(testosterone_conc)) + scale(d(L(STRESS))), data=zoo_p1)
+d1r_reg_total_test <- dynlm(formula = d(TOTAL) ~ d(L(testosterone_conc, 0:1)) + d(L(TOTAL)), data=zoo_p1)
+d1r_reg_exh_test <- dynlm(formula = d(EXH) ~ d(L(testosterone_conc, 0:1)) + d(L(EXH)), data=zoo_p1)
+d1r_reg_dev_test <- dynlm(formula = d(DEV) ~ d(L(testosterone_conc, 0:1)) + d(L(DEV)), data=zoo_p1)
+d1r_reg_rsa_test <- dynlm(formula = d(RSA) ~ d(L(testosterone_conc, 0:1)) + d(L(RSA)), data=zoo_p1)
+d1r_reg_stress_test <- dynlm(formula = d(STRESS) ~ d(L(testosterone_conc, 0:1)) + d(L(STRESS)), data=zoo_p1)
 
 summary(d1r_reg_total_test)
 summary(d1r_reg_exh_test)
@@ -1535,11 +1694,11 @@ summary(d1r_reg_rsa_test)
 summary(d1r_reg_stress_test)
 
 ##testosterone to cortisol
-d1r_reg_total_tc <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(testosterone_cortisol)) + scale(d(L(TOTAL))), data=zoo_p1)
-d1r_reg_exh_tc <- dynlm(formula = scale(d(EXH)) ~ scale(d(testosterone_cortisol)) + scale(d(L(EXH))), data=zoo_p1)
-d1r_reg_dev_tc <- dynlm(formula = scale(d(DEV)) ~ scale(d(testosterone_cortisol)) + scale(d(L(DEV))), data=zoo_p1)
-d1r_reg_rsa_tc <- dynlm(formula = scale(d(RSA)) ~ scale(d(testosterone_cortisol)) + scale(d(L(RSA))), data=zoo_p1)
-d1r_reg_stress_tc <- dynlm(formula = scale(d(STRESS)) ~ scale(d(testosterone_cortisol)) + scale(d(L(STRESS))), data=zoo_p1)
+d1r_reg_total_tc <- dynlm(formula = d(TOTAL) ~ d(L(testosterone_cortisol, 0:1)) + d(L(TOTAL)), data=zoo_p1)
+d1r_reg_exh_tc <- dynlm(formula = d(EXH) ~ d(L(testosterone_cortisol, 0:1)) + d(L(EXH)), data=zoo_p1)
+d1r_reg_dev_tc <- dynlm(formula = d(DEV) ~ d(L(testosterone_cortisol, 0:1)) + d(L(DEV)), data=zoo_p1)
+d1r_reg_rsa_tc <- dynlm(formula = d(RSA) ~ d(L(testosterone_cortisol, 0:1)) + d(L(RSA)), data=zoo_p1)
+d1r_reg_stress_tc <- dynlm(formula = d(STRESS) ~ d(L(testosterone_cortisol, 0:1)) + d(L(STRESS)), data=zoo_p1)
 
 summary(d1r_reg_total_tc)
 summary(d1r_reg_exh_tc)
@@ -1548,11 +1707,11 @@ summary(d1r_reg_rsa_tc)
 summary(d1r_reg_stress_tc)
 
 ##CRP
-d1r_reg_total_crp <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(CRP_conc)) + scale(d(L(TOTAL))), data=zoo_p1)
-d1r_reg_exh_crp <- dynlm(formula = scale(d(EXH)) ~ scale(d(CRP_conc)) + scale(d(L(EXH))), data=zoo_p1)
-d1r_reg_dev_crp <- dynlm(formula = scale(d(DEV)) ~ scale(d(CRP_conc)) + scale(d(L(DEV))), data=zoo_p1)
-d1r_reg_rsa_crp <- dynlm(formula = scale(d(RSA)) ~ scale(d(CRP_conc)) + scale(d(L(RSA))), data=zoo_p1)
-d1r_reg_stress_crp <- dynlm(formula = scale(d(STRESS)) ~ scale(d(CRP_conc)) + scale(d(L(STRESS))), data=zoo_p1)
+d1r_reg_total_crp <- dynlm(formula = d(TOTAL) ~ d(L(CRP_conc, 0:1)) + d(L(TOTAL)), data=zoo_p1)
+d1r_reg_exh_crp <- dynlm(formula = d(EXH) ~ d(L(CRP_conc, 0:1)) + d(L(EXH)), data=zoo_p1)
+d1r_reg_dev_crp <- dynlm(formula = d(DEV) ~ d(L(CRP_conc, 0:1)) + d(L(DEV)), data=zoo_p1)
+d1r_reg_rsa_crp <- dynlm(formula = d(RSA) ~ d(L(CRP_conc, 0:1)) + d(L(RSA)), data=zoo_p1)
+d1r_reg_stress_crp <- dynlm(formula = d(STRESS) ~ d(L(CRP_conc, 0:1)) + d(L(STRESS)), data=zoo_p1)
 
 summary(d1r_reg_total_crp)
 summary(d1r_reg_exh_crp)
@@ -1561,11 +1720,11 @@ summary(d1r_reg_rsa_crp)
 summary(d1r_reg_stress_crp)
 
 ##DHEAS
-d1r_reg_total_dheasf <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(DHEASxflow)) + scale(d(L(TOTAL))), data=zoo_p1)
-d1r_reg_exh_dheasf <- dynlm(formula = scale(d(EXH)) ~ scale(d(DHEASxflow)) + scale(d(L(EXH))), data=zoo_p1)
-d1r_reg_dev_dheasf <- dynlm(formula = scale(d(DEV)) ~ scale(d(DHEASxflow)) + scale(d(L(DEV))), data=zoo_p1)
-d1r_reg_rsa_dheasf <- dynlm(formula = scale(d(RSA)) ~ scale(d(DHEASxflow)) + scale(d(L(RSA))), data=zoo_p1)
-d1r_reg_stress_dheasf <- dynlm(formula = scale(d(STRESS)) ~ scale(d(DHEASxflow)) + scale(d(L(STRESS))), data=zoo_p1)
+d1r_reg_total_dheasf <- dynlm(formula = d(TOTAL) ~ d(L(DHEASxflow, 0:1)) + d(L(TOTAL)), data=zoo_p1)
+d1r_reg_exh_dheasf <- dynlm(formula = d(EXH) ~ d(L(DHEASxflow, 0:1)) + d(L(EXH)), data=zoo_p1)
+d1r_reg_dev_dheasf <- dynlm(formula = d(DEV) ~ d(L(DHEASxflow, 0:1)) + d(L(DEV)), data=zoo_p1)
+d1r_reg_rsa_dheasf <- dynlm(formula = d(RSA) ~ d(L(DHEASxflow, 0:1)) + d(L(RSA)), data=zoo_p1)
+d1r_reg_stress_dheasf <- dynlm(formula = d(STRESS) ~ d(L(DHEASxflow, 0:1)) + d(L(STRESS)), data=zoo_p1)
 
 summary(d1r_reg_total_dheasf)
 summary(d1r_reg_exh_dheasf)
@@ -1574,11 +1733,11 @@ summary(d1r_reg_rsa_dheasf)
 summary(d1r_reg_stress_dheasf)
 
 ##DHEA-s/Cortisol Ratio
-d1r_reg_total_dc <- dynlm(formula = d(TOTAL) ~ d(DHEAS_cortisol) + d(L(TOTAL)), data=zoo_p1)
-d1r_reg_exh_dc <- dynlm(formula = d(EXH) ~ d(DHEAS_cortisol) + d(L(EXH)), data=zoo_p1)
-d1r_reg_dev_dc <- dynlm(formula = d(DEV) ~ d(DHEAS_cortisol) + d(L(DEV)), data=zoo_p1)
-d1r_reg_rsa_dc <- dynlm(formula = d(RSA) ~ d(DHEAS_cortisol) + d(L(RSA)), data=zoo_p1)
-d1r_reg_stress_dc <- dynlm(formula = d(STRESS) ~ d(DHEAS_cortisol) + d(L(STRESS)), data=zoo_p1)
+d1r_reg_total_dc <- dynlm(formula = d(TOTAL) ~ d(DHEAS_cortisol, 0:1) + d(L(TOTAL)), data=zoo_p1)
+d1r_reg_exh_dc <- dynlm(formula = d(EXH) ~ d(DHEAS_cortisol, 0:1) + d(L(EXH)), data=zoo_p1)
+d1r_reg_dev_dc <- dynlm(formula = d(DEV) ~ d(DHEAS_cortisol, 0:1) + d(L(DEV)), data=zoo_p1)
+d1r_reg_rsa_dc <- dynlm(formula = d(RSA) ~ d(DHEAS_cortisol, 0:1) + d(L(RSA)), data=zoo_p1)
+d1r_reg_stress_dc <- dynlm(formula = d(STRESS) ~ d(DHEAS_cortisol, 0:1) + d(L(STRESS)), data=zoo_p1)
 
 summary(d1r_reg_total_dc)
 summary(d1r_reg_exh_dc)
@@ -1587,11 +1746,11 @@ summary(d1r_reg_rsa_dc)
 summary(d1r_reg_stress_dc)
 
 ##IgA
-d1r_reg_total_igaf <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(IgAxflow)) + scale(d(L(TOTAL))), data=zoo_p1)
-d1r_reg_exh_igaf <- dynlm(formula = scale(d(EXH)) ~ scale(d(IgAxflow)) + scale(d(L(EXH))), data=zoo_p1)
-d1r_reg_dev_igaf <- dynlm(formula = scale(d(DEV)) ~ scale(d(IgAxflow)) + scale(d(L(DEV))), data=zoo_p1)
-d1r_reg_rsa_igaf <- dynlm(formula = scale(d(RSA)) ~ scale(d(IgAxflow)) + scale(d(L(RSA))), data=zoo_p1)
-d1r_reg_stress_igaf <- dynlm(formula = scale(d(STRESS)) ~ scale(d(IgAxflow)) + scale(d(L(STRESS))), data=zoo_p1)
+d1r_reg_total_igaf <- dynlm(formula = d(TOTAL) ~ d(L(IgAxflow, 0:1)) + d(L(TOTAL)), data=zoo_p1)
+d1r_reg_exh_igaf <- dynlm(formula = d(EXH) ~ d(L(IgAxflow, 0:1)) + d(L(EXH)), data=zoo_p1)
+d1r_reg_dev_igaf <- dynlm(formula = d(DEV) ~ d(L(IgAxflow, 0:1)) + d(L(DEV)), data=zoo_p1)
+d1r_reg_rsa_igaf <- dynlm(formula = d(RSA) ~ d(L(IgAxflow, 0:1)) + d(L(RSA)), data=zoo_p1)
+d1r_reg_stress_igaf <- dynlm(formula = d(STRESS) ~ d(L(IgAxflow, 0:1)) + d(L(STRESS)), data=zoo_p1)
 
 summary(d1r_reg_total_igaf)
 summary(d1r_reg_exh_igaf)
@@ -1600,11 +1759,11 @@ summary(d1r_reg_rsa_igaf)
 summary(d1r_reg_stress_igaf)
 
 ##sbp
-d1r_reg_total_sbp <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(SBP)) + scale(d(L(TOTAL))), data=zoo_p1)
-d1r_reg_exh_sbp <- dynlm(formula = scale(d(EXH)) ~ scale(d(SBP)) + scale(d(L(EXH))), data=zoo_p1)
-d1r_reg_dev_sbp <- dynlm(formula = scale(d(DEV)) ~ scale(d(SBP)) + scale(d(L(DEV))), data=zoo_p1)
-d1r_reg_rsa_sbp <- dynlm(formula = scale(d(RSA)) ~ scale(d(SBP)) + scale(d(L(RSA))), data=zoo_p1)
-d1r_reg_stress_sbp <- dynlm(formula = scale(d(STRESS)) ~ scale(d(SBP)) + scale(d(L(STRESS))), data=zoo_p1)
+d1r_reg_total_sbp <- dynlm(formula = d(TOTAL) ~ d(L(SBP, 0:1)) + d(L(TOTAL)), data=zoo_p1)
+d1r_reg_exh_sbp <- dynlm(formula = d(EXH) ~ d(L(SBP, 0:1)) + d(L(EXH)), data=zoo_p1)
+d1r_reg_dev_sbp <- dynlm(formula = d(DEV) ~ d(L(SBP, 0:1)) + d(L(DEV)), data=zoo_p1)
+d1r_reg_rsa_sbp <- dynlm(formula = d(RSA) ~ d(L(SBP, 0:1)) + d(L(RSA)), data=zoo_p1)
+d1r_reg_stress_sbp <- dynlm(formula = d(STRESS) ~ d(L(SBP, 0:1)) + d(L(STRESS)), data=zoo_p1)
 
 summary(d1r_reg_total_sbp)
 summary(d1r_reg_exh_sbp)
@@ -1613,11 +1772,11 @@ summary(d1r_reg_rsa_sbp)
 summary(d1r_reg_stress_sbp)
 
 ##dbp
-d1r_reg_total_dbp <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(DBP)) + scale(d(L(TOTAL))), data=zoo_p1)
-d1r_reg_exh_dbp <- dynlm(formula = scale(d(EXH)) ~ scale(d(DBP)) + scale(d(L(EXH))), data=zoo_p1)
-d1r_reg_dev_dbp <- dynlm(formula = scale(d(DEV)) ~ scale(d(DBP)) + scale(d(L(DEV))), data=zoo_p1)
-d1r_reg_rsa_dbp <- dynlm(formula = scale(d(RSA)) ~ scale(d(DBP)) + scale(d(L(RSA))), data=zoo_p1)
-d1r_reg_stress_dbp <- dynlm(formula = scale(d(STRESS)) ~ scale(d(DBP)) + scale(d(L(STRESS))), data=zoo_p1)
+d1r_reg_total_dbp <- dynlm(formula = d(TOTAL) ~ d(L(DBP, 0:1)) + d(L(TOTAL)), data=zoo_p1)
+d1r_reg_exh_dbp <- dynlm(formula = d(EXH) ~ d(L(DBP, 0:1)) + d(L(EXH)), data=zoo_p1)
+d1r_reg_dev_dbp <- dynlm(formula = d(DEV) ~ d(L(DBP, 0:1)) + d(L(DEV)), data=zoo_p1)
+d1r_reg_rsa_dbp <- dynlm(formula = d(RSA) ~ d(L(DBP, 0:1)) + d(L(RSA)), data=zoo_p1)
+d1r_reg_stress_dbp <- dynlm(formula = d(STRESS) ~ d(L(DBP, 0:1)) + d(L(STRESS)), data=zoo_p1)
 
 summary(d1r_reg_total_dbp)
 summary(d1r_reg_exh_dbp)
@@ -1626,11 +1785,11 @@ summary(d1r_reg_rsa_dbp)
 summary(d1r_reg_stress_dbp)
 
 ##HRV
-d1r_reg_total_hrv <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(HRV)) + scale(d(L(TOTAL))), data=zoo_p1)
-d1r_reg_exh_hrv <- dynlm(formula = scale(d(EXH)) ~ scale(d(HRV)) + scale(d(L(EXH))), data=zoo_p1)
-d1r_reg_dev_hrv <- dynlm(formula = scale(d(DEV)) ~ scale(d(HRV)) + scale(d(L(DEV))), data=zoo_p1)
-d1r_reg_rsa_hrv <- dynlm(formula = scale(d(RSA)) ~ scale(d(HRV)) + scale(d(L(RSA))), data=zoo_p1)
-d1r_reg_stress_hrv <- dynlm(formula = scale(d(STRESS)) ~ scale(d(HRV)) + scale(d(L(STRESS))), data=zoo_p1)
+d1r_reg_total_hrv <- dynlm(formula = d(TOTAL) ~ d(L(HRV, 0:1)) + d(L(TOTAL)), data=zoo_p1)
+d1r_reg_exh_hrv <- dynlm(formula = d(EXH) ~ d(L(HRV, 0:1)) + d(L(EXH)), data=zoo_p1)
+d1r_reg_dev_hrv <- dynlm(formula = d(DEV) ~ d(L(HRV, 0:1)) + d(L(DEV)), data=zoo_p1)
+d1r_reg_rsa_hrv <- dynlm(formula = d(RSA) ~ d(L(HRV, 0:1)) + d(L(RSA)), data=zoo_p1)
+d1r_reg_stress_hrv <- dynlm(formula = d(STRESS) ~ d(L(HRV, 0:1)) + d(L(STRESS)), data=zoo_p1)
 
 summary(d1r_reg_total_hrv)
 summary(d1r_reg_exh_hrv)
@@ -1641,11 +1800,11 @@ summary(d1r_reg_stress_hrv)
 
 ##Participant A2
 ##cortisol
-d4r_reg_total_cor <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(cortisol_conc)) + scale(d(L(TOTAL))), data=zoo_p4)
-d4r_reg_exh_cor <- dynlm(formula = scale(d(EXH)) ~ scale(d(cortisol_conc)) + scale(d(L(EXH))), data=zoo_p4)
-d4r_reg_dev_cor <- dynlm(formula = scale(d(DEV)) ~ scale(d(cortisol_conc)) + scale(d(L(DEV))), data=zoo_p4)
-d4r_reg_rsa_cor <- dynlm(formula = scale(d(RSA)) ~ scale(d(cortisol_conc)) + scale(d(L(RSA))), data=zoo_p4)
-d4r_reg_stress_cor <- dynlm(formula = scale(d(STRESS)) ~ scale(d(cortisol_conc)) + scale(d(L(STRESS))), data=zoo_p4)
+d4r_reg_total_cor <- dynlm(formula = d(TOTAL) ~ d(L(cortisol_conc, 0:1)) + d(L(TOTAL)), data=zoo_p4)
+d4r_reg_exh_cor <- dynlm(formula = d(EXH) ~ d(L(cortisol_conc, 0:1)) + d(L(EXH)), data=zoo_p4)
+d4r_reg_dev_cor <- dynlm(formula = d(DEV) ~ d(L(cortisol_conc, 0:1)) + d(L(DEV)), data=zoo_p4)
+d4r_reg_rsa_cor <- dynlm(formula = d(RSA) ~ d(L(cortisol_conc, 0:1)) + d(L(RSA)), data=zoo_p4)
+d4r_reg_stress_cor <- dynlm(formula = d(STRESS) ~ d(L(cortisol_conc, 0:1)) + d(L(STRESS)), data=zoo_p4)
 
 summary(d4r_reg_total_cor)
 summary(d4r_reg_exh_cor)
@@ -1654,11 +1813,11 @@ summary(d4r_reg_rsa_cor)
 summary(d4r_reg_stress_cor)
 
 ##testosterone
-d4r_reg_total_test <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(testosterone_conc)) + scale(d(L(TOTAL))), data=zoo_p4)
-d4r_reg_exh_test <- dynlm(formula = scale(d(EXH)) ~ scale(d(testosterone_conc)) + scale(d(L(EXH))), data=zoo_p4)
-d4r_reg_dev_test <- dynlm(formula = scale(d(DEV)) ~ scale(d(testosterone_conc)) + scale(d(L(DEV))), data=zoo_p4)
-d4r_reg_rsa_test <- dynlm(formula = scale(d(RSA)) ~ scale(d(testosterone_conc)) + scale(d(L(RSA))), data=zoo_p4)
-d4r_reg_stress_test <- dynlm(formula = scale(d(STRESS)) ~ scale(d(testosterone_conc)) + scale(d(L(STRESS))), data=zoo_p4)
+d4r_reg_total_test <- dynlm(formula = d(TOTAL) ~ d(L(testosterone_conc, 0:1)) + d(L(TOTAL)), data=zoo_p4)
+d4r_reg_exh_test <- dynlm(formula = d(EXH) ~ d(L(testosterone_conc, 0:1)) + d(L(EXH)), data=zoo_p4)
+d4r_reg_dev_test <- dynlm(formula = d(DEV) ~ d(L(testosterone_conc, 0:1)) + d(L(DEV)), data=zoo_p4)
+d4r_reg_rsa_test <- dynlm(formula = d(RSA) ~ d(L(testosterone_conc, 0:1)) + d(L(RSA)), data=zoo_p4)
+d4r_reg_stress_test <- dynlm(formula = d(STRESS) ~ d(L(testosterone_conc, 0:1)) + d(L(STRESS)), data=zoo_p4)
 
 summary(d4r_reg_total_test)
 summary(d4r_reg_exh_test)
@@ -1667,11 +1826,11 @@ summary(d4r_reg_rsa_test)
 summary(d4r_reg_stress_test)
 
 ##testosterone to cortisol
-d4r_reg_total_tc <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(testosterone_cortisol)) + scale(d(L(TOTAL))), data=zoo_p4)
-d4r_reg_exh_tc <- dynlm(formula = scale(d(EXH)) ~ scale(d(testosterone_cortisol)) + scale(d(L(EXH))), data=zoo_p4)
-d4r_reg_dev_tc <- dynlm(formula = scale(d(DEV)) ~ scale(d(testosterone_cortisol)) + scale(d(L(DEV))), data=zoo_p4)
-d4r_reg_rsa_tc <- dynlm(formula = scale(d(RSA)) ~ scale(d(testosterone_cortisol)) + scale(d(L(RSA))), data=zoo_p4)
-d4r_reg_stress_tc <- dynlm(formula = scale(d(STRESS)) ~ scale(d(testosterone_cortisol)) + scale(d(L(STRESS))), data=zoo_p4)
+d4r_reg_total_tc <- dynlm(formula = d(TOTAL) ~ d(L(testosterone_cortisol, 0:1)) + d(L(TOTAL)), data=zoo_p4)
+d4r_reg_exh_tc <- dynlm(formula = d(EXH) ~ d(L(testosterone_cortisol, 0:1)) + d(L(EXH)), data=zoo_p4)
+d4r_reg_dev_tc <- dynlm(formula = d(DEV) ~ d(L(testosterone_cortisol, 0:1)) + d(L(DEV)), data=zoo_p4)
+d4r_reg_rsa_tc <- dynlm(formula = d(RSA) ~ d(L(testosterone_cortisol, 0:1)) + d(L(RSA)), data=zoo_p4)
+d4r_reg_stress_tc <- dynlm(formula = d(STRESS) ~ d(L(testosterone_cortisol, 0:1)) + d(L(STRESS)), data=zoo_p4)
 
 summary(d4r_reg_total_tc)
 summary(d4r_reg_exh_tc)
@@ -1680,11 +1839,11 @@ summary(d4r_reg_rsa_tc)
 summary(d4r_reg_stress_tc)
 
 ##CRP
-d4r_reg_total_crp <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(CRP_conc)) + scale(d(L(TOTAL))), data=zoo_p4)
-d4r_reg_exh_crp <- dynlm(formula = scale(d(EXH)) ~ scale(d(CRP_conc)) + scale(d(L(EXH))), data=zoo_p4)
-d4r_reg_dev_crp <- dynlm(formula = scale(d(DEV)) ~ scale(d(CRP_conc)) + scale(d(L(DEV))), data=zoo_p4)
-d4r_reg_rsa_crp <- dynlm(formula = scale(d(RSA)) ~ scale(d(CRP_conc)) + scale(d(L(RSA))), data=zoo_p4)
-d4r_reg_stress_crp <- dynlm(formula = scale(d(STRESS)) ~ scale(d(CRP_conc)) + scale(d(L(STRESS))), data=zoo_p4)
+d4r_reg_total_crp <- dynlm(formula = d(TOTAL) ~ d(L(CRP_conc, 0:1)) + d(L(TOTAL)), data=zoo_p4)
+d4r_reg_exh_crp <- dynlm(formula = d(EXH) ~ d(L(CRP_conc, 0:1)) + d(L(EXH)), data=zoo_p4)
+d4r_reg_dev_crp <- dynlm(formula = d(DEV) ~ d(L(CRP_conc, 0:1)) + d(L(DEV)), data=zoo_p4)
+d4r_reg_rsa_crp <- dynlm(formula = d(RSA) ~ d(L(CRP_conc, 0:1)) + d(L(RSA)), data=zoo_p4)
+d4r_reg_stress_crp <- dynlm(formula = d(STRESS) ~ d(L(CRP_conc, 0:1)) + d(L(STRESS)), data=zoo_p4)
 
 summary(d4r_reg_total_crp)
 summary(d4r_reg_exh_crp)
@@ -1699,11 +1858,11 @@ d4r_reg_dev_dheas <- dynlm(formula = d(DEV) ~ d(DHEAS_conc) + d(L(DEV)), data=zo
 d4r_reg_rsa_dheas <- dynlm(formula = d(RSA) ~ d(DHEAS_conc) + d(L(RSA)), data=zoo_p4)
 d4r_reg_stress_dheas <- dynlm(formula = d(STRESS) ~ d(DHEAS_conc) + d(L(STRESS)), data=zoo_p4)
 
-d4r_reg_total_dheasf <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(DHEASxflow)) + scale(d(L(TOTAL))), data=zoo_p4)
-d4r_reg_exh_dheasf <- dynlm(formula = scale(d(EXH)) ~ scale(d(DHEASxflow)) + scale(d(L(EXH))), data=zoo_p4)
-d4r_reg_dev_dheasf <- dynlm(formula = scale(d(DEV)) ~ scale(d(DHEASxflow)) + scale(d(L(DEV))), data=zoo_p4)
-d4r_reg_rsa_dheasf <- dynlm(formula = scale(d(RSA)) ~ scale(d(DHEASxflow)) + scale(d(L(RSA))), data=zoo_p4)
-d4r_reg_stress_dheasf <- dynlm(formula = scale(d(STRESS)) ~ scale(d(DHEASxflow)) + scale(d(L(STRESS))), data=zoo_p4)
+d4r_reg_total_dheasf <- dynlm(formula = d(TOTAL) ~ d(L(DHEASxflow, 0:1)) + d(L(TOTAL)), data=zoo_p4)
+d4r_reg_exh_dheasf <- dynlm(formula = d(EXH) ~ d(L(DHEASxflow, 0:1)) + d(L(EXH)), data=zoo_p4)
+d4r_reg_dev_dheasf <- dynlm(formula = d(DEV) ~ d(L(DHEASxflow, 0:1)) + d(L(DEV)), data=zoo_p4)
+d4r_reg_rsa_dheasf <- dynlm(formula = d(RSA) ~ d(L(DHEASxflow, 0:1)) + d(L(RSA)), data=zoo_p4)
+d4r_reg_stress_dheasf <- dynlm(formula = d(STRESS) ~ d(L(DHEASxflow, 0:1)) + d(L(STRESS)), data=zoo_p4)
 
 d4r_reg_total_dheasp <- dynlm(formula = d(TOTAL) ~ d(DHEASxprotein) + d(L(TOTAL)), data=zoo_p4)
 d4r_reg_exh_dheasp <- dynlm(formula = d(EXH) ~ d(DHEASxprotein) + d(L(EXH)), data=zoo_p4)
@@ -1743,11 +1902,11 @@ summary(d4r_reg_rsa_dc)
 summary(d4r_reg_stress_dc)
 
 ##IgA
-d4r_reg_total_igaf <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(IgAxflow)) + scale(d(L(TOTAL))), data=zoo_p4)
-d4r_reg_exh_igaf <- dynlm(formula = scale(d(EXH)) ~ scale(d(IgAxflow)) + scale(d(L(EXH))), data=zoo_p4)
-d4r_reg_dev_igaf <- dynlm(formula = scale(d(DEV)) ~ scale(d(IgAxflow)) + scale(d(L(DEV))), data=zoo_p4)
-d4r_reg_rsa_igaf <- dynlm(formula = scale(d(RSA)) ~ scale(d(IgAxflow)) + scale(d(L(RSA))), data=zoo_p4)
-d4r_reg_stress_igaf <- dynlm(formula = scale(d(STRESS)) ~ scale(d(IgAxflow)) + scale(d(L(STRESS))), data=zoo_p4)
+d4r_reg_total_igaf <- dynlm(formula = d(TOTAL) ~ d(L(IgAxflow, 0:1)) + d(L(TOTAL)), data=zoo_p4)
+d4r_reg_exh_igaf <- dynlm(formula = d(EXH) ~ d(L(IgAxflow, 0:1)) + d(L(EXH)), data=zoo_p4)
+d4r_reg_dev_igaf <- dynlm(formula = d(DEV) ~ d(L(IgAxflow, 0:1)) + d(L(DEV)), data=zoo_p4)
+d4r_reg_rsa_igaf <- dynlm(formula = d(RSA) ~ d(L(IgAxflow, 0:1)) + d(L(RSA)), data=zoo_p4)
+d4r_reg_stress_igaf <- dynlm(formula = d(STRESS) ~ d(L(IgAxflow, 0:1)) + d(L(STRESS)), data=zoo_p4)
 
 summary(d4r_reg_total_igaf)
 summary(d4r_reg_exh_igaf)
@@ -1756,11 +1915,11 @@ summary(d4r_reg_rsa_igaf)
 summary(d4r_reg_stress_igaf)
 
 ##sbp
-d4r_reg_total_sbp <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(SBP)) + scale(d(L(TOTAL))), data=zoo_p4)
-d4r_reg_exh_sbp <- dynlm(formula = scale(d(EXH)) ~ scale(d(SBP)) + scale(d(L(EXH))), data=zoo_p4)
-d4r_reg_dev_sbp <- dynlm(formula = scale(d(DEV)) ~ scale(d(SBP)) + scale(d(L(DEV))), data=zoo_p4)
-d4r_reg_rsa_sbp <- dynlm(formula = scale(d(RSA)) ~ scale(d(SBP)) + scale(d(L(RSA))), data=zoo_p4)
-d4r_reg_stress_sbp <- dynlm(formula = scale(d(STRESS)) ~ scale(d(SBP)) + scale(d(L(STRESS))), data=zoo_p4)
+d4r_reg_total_sbp <- dynlm(formula = d(TOTAL) ~ d(L(SBP, 0:1)) + d(L(TOTAL)), data=zoo_p4)
+d4r_reg_exh_sbp <- dynlm(formula = d(EXH) ~ d(L(SBP, 0:1)) + d(L(EXH)), data=zoo_p4)
+d4r_reg_dev_sbp <- dynlm(formula = d(DEV) ~ d(L(SBP, 0:1)) + d(L(DEV)), data=zoo_p4)
+d4r_reg_rsa_sbp <- dynlm(formula = d(RSA) ~ d(L(SBP, 0:1)) + d(L(RSA)), data=zoo_p4)
+d4r_reg_stress_sbp <- dynlm(formula = d(STRESS) ~ d(L(SBP, 0:1)) + d(L(STRESS)), data=zoo_p4)
 
 summary(d4r_reg_total_sbp)
 summary(d4r_reg_exh_sbp)
@@ -1769,11 +1928,11 @@ summary(d4r_reg_rsa_sbp)
 summary(d4r_reg_stress_sbp)
 
 ##dbp
-d4r_reg_total_dbp <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(DBP)) + scale(d(L(TOTAL))), data=zoo_p4)
-d4r_reg_exh_dbp <- dynlm(formula = scale(d(EXH)) ~ scale(d(DBP)) + scale(d(L(EXH))), data=zoo_p4)
-d4r_reg_dev_dbp <- dynlm(formula = scale(d(DEV)) ~ scale(d(DBP)) + scale(d(L(DEV))), data=zoo_p4)
-d4r_reg_rsa_dbp <- dynlm(formula = scale(d(RSA)) ~ scale(d(DBP)) + scale(d(L(RSA))), data=zoo_p4)
-d4r_reg_stress_dbp <- dynlm(formula = scale(d(STRESS)) ~ scale(d(DBP)) + scale(d(L(STRESS))), data=zoo_p4)
+d4r_reg_total_dbp <- dynlm(formula = d(TOTAL) ~ d(L(DBP, 0:1)) + d(L(TOTAL)), data=zoo_p4)
+d4r_reg_exh_dbp <- dynlm(formula = d(EXH) ~ d(L(DBP, 0:1)) + d(L(EXH)), data=zoo_p4)
+d4r_reg_dev_dbp <- dynlm(formula = d(DEV) ~ d(L(DBP, 0:1)) + d(L(DEV)), data=zoo_p4)
+d4r_reg_rsa_dbp <- dynlm(formula = d(RSA) ~ d(L(DBP, 0:1)) + d(L(RSA)), data=zoo_p4)
+d4r_reg_stress_dbp <- dynlm(formula = d(STRESS) ~ d(L(DBP, 0:1)) + d(L(STRESS)), data=zoo_p4)
 
 summary(d4r_reg_total_dbp)
 summary(d4r_reg_exh_dbp)
@@ -1782,11 +1941,11 @@ summary(d4r_reg_rsa_dbp)
 summary(d4r_reg_stress_dbp)
 
 ##HRV
-d4r_reg_total_hrv <- dynlm(formula = scale(d(TOTAL)) ~ scale(d(HRV)) + scale(d(L(TOTAL))), data=zoo_p4)
-d4r_reg_exh_hrv <- dynlm(formula = scale(d(EXH)) ~ scale(d(HRV)) + scale(d(L(EXH))), data=zoo_p4)
-d4r_reg_dev_hrv <- dynlm(formula = scale(d(DEV)) ~ scale(d(HRV)) + scale(d(L(DEV))), data=zoo_p4)
-d4r_reg_rsa_hrv <- dynlm(formula = scale(d(RSA)) ~ scale(d(HRV)) + scale(d(L(RSA))), data=zoo_p4)
-d4r_reg_stress_hrv <- dynlm(formula = scale(d(STRESS)) ~ scale(d(HRV)) + scale(d(L(STRESS))), data=zoo_p4)
+d4r_reg_total_hrv <- dynlm(formula = d(TOTAL) ~ d(L(HRV, 0:1)) + d(L(TOTAL)), data=zoo_p4)
+d4r_reg_exh_hrv <- dynlm(formula = d(EXH) ~ d(L(HRV, 0:1)) + d(L(EXH)), data=zoo_p4)
+d4r_reg_dev_hrv <- dynlm(formula = d(DEV) ~ d(L(HRV, 0:1)) + d(L(DEV)), data=zoo_p4)
+d4r_reg_rsa_hrv <- dynlm(formula = d(RSA) ~ d(L(HRV, 0:1)) + d(L(RSA)), data=zoo_p4)
+d4r_reg_stress_hrv <- dynlm(formula = d(STRESS) ~ d(L(HRV, 0:1)) + d(L(STRESS)), data=zoo_p4)
 
 summary(d4r_reg_total_hrv)
 summary(d4r_reg_exh_hrv)
